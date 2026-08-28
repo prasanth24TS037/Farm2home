@@ -1,0 +1,213 @@
+@import './variables.css';
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  font-weight: var(--font-regular);
+  color: var(--color-text-main);
+  background-color: var(--color-bg-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+/* Sentence case & typography defaults */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-medium);
+  color: var(--color-text-main);
+  line-height: 1.3;
+}
+
+p, span, label, button, input {
+  font-family: inherit;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+/* Clean Card Base */
+.card-flat {
+  background-color: var(--color-bg-surface);
+  border: var(--border-hairline);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 0.9375rem;
+  font-weight: var(--font-medium);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), transform 0.05s ease;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--color-bg-surface);
+  color: var(--color-text-main);
+  border: var(--border-hairline);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-bg-subtle);
+}
+
+.btn-accent-farmer {
+  background-color: var(--color-accent-farmer);
+  color: #ffffff;
+}
+
+.btn-accent-farmer:hover {
+  background-color: #14532d;
+}
+
+.btn-accent-customer {
+  background-color: var(--color-accent-customer);
+  color: #ffffff;
+}
+
+.btn-accent-customer:hover {
+  background-color: #0369a1;
+}
+
+.btn-accent-delivery {
+  background-color: var(--color-accent-delivery);
+  color: #ffffff;
+}
+
+.btn-accent-delivery:hover {
+  background-color: #b45309;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  border-radius: var(--radius-sm);
+}
+
+.btn-lg {
+  padding: 14px 24px;
+  font-size: 1rem;
+  border-radius: var(--radius-md);
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: var(--font-medium);
+  border-radius: var(--radius-full);
+}
+
+.badge-success {
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-primary-border);
+}
+
+.badge-warning {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid #fde68a;
+}
+
+.badge-danger {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid #fecaca;
+}
+
+.badge-neutral {
+  background-color: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+  border: var(--border-hairline);
+}
+
+/* Form Inputs */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: var(--font-medium);
+  color: var(--color-text-main);
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 0.9375rem;
+  color: var(--color-text-main);
+  background-color: var(--color-bg-surface);
+  border: var(--border-hairline);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.form-input:focus {
+  border-color: var(--color-primary);
+}
+
+.form-input-error {
+  border-color: var(--color-danger);
+}
+
+/* Utilities */
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hairline-divider {
+  height: 1px;
+  background-color: #e2e8f0;
+  width: 100%;
+  margin: 16px 0;
+}
