@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { productService } from '../services/productService';
+import { getImageUrl } from '../utils/imageUtils';
 import { LanguageToggle } from '../components/common/LanguageToggle';
 import {
   LayoutDashboard,
