@@ -64,6 +64,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const googleLogin = async (id_token, role) => {
+    setLoading(true);
+    try {
+      const data = await authService.googleLogin(id_token, role);
+      localStorage.setItem('farm2home_token', data.access_token);
+      localStorage.setItem('farm2home_user', JSON.stringify(data.user));
+      setToken(data.access_token);
+      setUser(data.user);
+      return data.user;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const forgotPassword = async (email) => {
+    return authService.forgotPassword(email);
+  };
+
+  const resetPassword = async (token, new_password) => {
+    return authService.resetPassword(token, new_password);
+  };
+
   const updateProfile = async (profileData) => {
     setLoading(true);
     try {
@@ -112,7 +134,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, otpLogin, register, updateProfile, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, loading, login, otpLogin, register, googleLogin, forgotPassword, resetPassword, updateProfile, logout, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );

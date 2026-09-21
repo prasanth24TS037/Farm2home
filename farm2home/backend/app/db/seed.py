@@ -1,15 +1,63 @@
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.db.database import SessionLocal, Base, engine
 from app.models.user import User
 from app.models.farmer import FarmerProfile
 from app.models.customer import CustomerProfile
-from app.models.delivery import DeliveryProfile
+from app.models.delivery import DeliveryProfile, Delivery
 from app.models.product import Category, Product
 from app.models.order import Order, OrderItem
+from app.models.payout import Payout
 from app.core.security import get_password_hash
+
+def ensure_schema_columns():
+    try:
+        with engine.connect() as conn:
+            # Users table schema updates
+            res_user = conn.execute(text("PRAGMA table_info(users)"))
+            user_cols = [row[1] for row in res_user.fetchall()]
+            if user_cols and "auth_provider" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN auth_provider VARCHAR(50) DEFAULT 'local'"))
+            if user_cols and "google_sub" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN google_sub VARCHAR(255)"))
+
+            # Farmers table schema updates
+            res = conn.execute(text("PRAGMA table_info(farmers)"))
+            cols = [row[1] for row in res.fetchall()]
+            if cols and "payout_method" not in cols:
+                conn.execute(text("ALTER TABLE farmers ADD COLUMN payout_method VARCHAR(50) DEFAULT 'UPI'"))
+            if cols and "payout_upi_id" not in cols:
+                conn.execute(text("ALTER TABLE farmers ADD COLUMN payout_upi_id VARCHAR(100)"))
+            if cols and "payout_account_holder" not in cols:
+                conn.execute(text("ALTER TABLE farmers ADD COLUMN payout_account_holder VARCHAR(100)"))
+            if cols and "payout_account_last_four" not in cols:
+                conn.execute(text("ALTER TABLE farmers ADD COLUMN payout_account_last_four VARCHAR(10)"))
+            if cols and "payout_bank_name" not in cols:
+                conn.execute(text("ALTER TABLE farmers ADD COLUMN payout_bank_name VARCHAR(100)"))
+            if cols and "payout_bank_ifsc" not in cols:
+                conn.execute(text("ALTER TABLE farmers ADD COLUMN payout_bank_ifsc VARCHAR(20)"))
+
+            # OrderItems table schema updates
+            res_items = conn.execute(text("PRAGMA table_info(order_items)"))
+            item_cols = [row[1] for row in res_items.fetchall()]
+            if item_cols and "farmer_id" not in item_cols:
+                conn.execute(text("ALTER TABLE order_items ADD COLUMN farmer_id INTEGER REFERENCES farmers(id)"))
+
+            # Backfill any null farmer_id in order_items from products
+            conn.execute(text("""
+                UPDATE order_items 
+                SET farmer_id = (SELECT farmer_id FROM products WHERE products.id = order_items.product_id)
+                WHERE farmer_id IS NULL AND product_id IN (SELECT id FROM products)
+            """))
+
+            conn.commit()
+    except Exception as e:
+        print(f"Schema check notice: {e}")
+
 
 def seed_database(force: bool = False):
     Base.metadata.create_all(bind=engine)
+    ensure_schema_columns()
     db = SessionLocal()
 
     try:
@@ -24,6 +72,8 @@ def seed_database(force: bool = False):
         # If re-seeding to expand data, clean up existing tables cleanly
         if existing_products_count > 0 or force:
             try:
+                db.query(Delivery).delete()
+                db.query(Payout).delete()
                 db.query(OrderItem).delete()
                 db.query(Order).delete()
                 db.query(Product).delete()
@@ -70,10 +120,17 @@ def seed_database(force: bool = False):
             pincode="613001",
             farm_size_acres=5.2,
             organic_certified=True,
-            total_earnings=48250.0
+            total_earnings=0.0,
+            payout_method="UPI",
+            payout_upi_id="farmer.ramesh@okhdfcbank",
+            payout_account_holder="Ramesh Kumar",
+            payout_account_last_four="4417",
+            payout_bank_name="HDFC Bank",
+            payout_bank_ifsc="HDFC0001234"
         )
         db.add(farmer_profile)
         db.flush()
+
 
         # 3. Farmer User 2: Kavitha Shanmugam (Pollachi)
         farmer_user2 = User(
@@ -96,7 +153,7 @@ def seed_database(force: bool = False):
             pincode="642001",
             farm_size_acres=4.0,
             organic_certified=True,
-            total_earnings=36100.0
+            total_earnings=0.0
         )
         db.add(farmer_profile2)
         db.flush()
@@ -122,7 +179,7 @@ def seed_database(force: bool = False):
             pincode="643001",
             farm_size_acres=3.5,
             organic_certified=True,
-            total_earnings=29400.0
+            total_earnings=0.0
         )
         db.add(farmer_profile3)
         db.flush()
@@ -148,7 +205,7 @@ def seed_database(force: bool = False):
             pincode="625001",
             farm_size_acres=4.8,
             organic_certified=True,
-            total_earnings=41800.0
+            total_earnings=0.0
         )
         db.add(farmer_profile4)
         db.flush()
@@ -174,7 +231,7 @@ def seed_database(force: bool = False):
         db.add(customer_profile)
         db.flush()
 
-        # 7. Delivery Partner User
+        # 7. Delivery Partner User 1 (Agent D: Murugan Vel)
         delivery_user = User(
             full_name="Murugan Vel",
             email="delivery@farm2home.com",
@@ -196,6 +253,30 @@ def seed_database(force: bool = False):
             completed_today=9
         )
         db.add(delivery_profile)
+        db.flush()
+
+        # 8. Delivery Partner User 2 (Agent E: Karthik Raja)
+        delivery_user2 = User(
+            full_name="Karthik Raja",
+            email="delivery2@farm2home.com",
+            phone="+91 97890 54321",
+            hashed_password=get_password_hash("Delivery@123"),
+            role="delivery",
+            language="en"
+        )
+        db.add(delivery_user2)
+        db.flush()
+
+        delivery_profile2 = DeliveryProfile(
+            user_id=delivery_user2.id,
+            vehicle_type="EV Bike (Ather 450X)",
+            vehicle_number="TN-09-EV-8842",
+            license_number="DL-TN-2023-99104",
+            is_on_duty=True,
+            total_deliveries=12,
+            completed_today=6
+        )
+        db.add(delivery_profile2)
         db.flush()
 
         # Categories
@@ -646,10 +727,41 @@ def seed_database(force: bool = False):
         db.add(order1)
         db.flush()
 
-        item1 = OrderItem(order_id=order1.id, product_id=products_data[0].id, quantity=3.0, unit_price=38.0, subtotal=114.0)
-        item2 = OrderItem(order_id=order1.id, product_id=products_data[1].id, quantity=2.0, unit_price=25.0, subtotal=50.0)
-        item3 = OrderItem(order_id=order1.id, product_id=products_data[8].id, quantity=3.0, unit_price=45.0, subtotal=135.0)
+        item1 = OrderItem(order_id=order1.id, product_id=products_data[0].id, farmer_id=products_data[0].farmer_id, quantity=3.0, unit_price=38.0, subtotal=114.0)
+        item2 = OrderItem(order_id=order1.id, product_id=products_data[1].id, farmer_id=products_data[1].farmer_id, quantity=2.0, unit_price=25.0, subtotal=50.0)
+        item3 = OrderItem(order_id=order1.id, product_id=products_data[8].id, farmer_id=products_data[8].farmer_id, quantity=3.0, unit_price=45.0, subtotal=135.0)
         db.add_all([item1, item2, item3])
+
+        # Delivery legs for order1 (multi-farmer order: Farmer 1 and Farmer 2)
+        leg1 = Delivery(
+            order_id=order1.id,
+            farmer_id=farmer_profile.id,
+            delivery_agent_id=delivery_profile.id,
+            pickup_address=f"{farmer_profile.farm_name}, {farmer_profile.location}",
+            drop_address=order1.delivery_address,
+            pickup_lat=10.79,
+            pickup_lng=79.13,
+            drop_lat=13.08,
+            drop_lng=80.27,
+            status="assigned",
+            payout_amount=65.0,
+            distance_km=4.2
+        )
+        leg2 = Delivery(
+            order_id=order1.id,
+            farmer_id=farmer_profile2.id,
+            delivery_agent_id=delivery_profile2.id,
+            pickup_address=f"{farmer_profile2.farm_name}, {farmer_profile2.location}",
+            drop_address=order1.delivery_address,
+            pickup_lat=10.66,
+            pickup_lng=77.01,
+            drop_lat=13.08,
+            drop_lng=80.27,
+            status="assigned",
+            payout_amount=75.0,
+            distance_km=6.8
+        )
+        db.add_all([leg1, leg2])
 
         # Another confirmed order
         order2 = Order(
@@ -660,9 +772,29 @@ def seed_database(force: bool = False):
             status="confirmed",
             payment_status="completed",
             delivery_address="18 Anna Nagar West, Chennai 600040",
-            pickup_address="Kavitha Eco Farm, Pollachi"
+            pickup_address=f"{farmer_profile.farm_name}, {farmer_profile.location}"
         )
         db.add(order2)
+        db.flush()
+
+        item4 = OrderItem(order_id=order2.id, product_id=products_data[3].id, farmer_id=products_data[3].farmer_id, quantity=4.0, unit_price=products_data[3].price_per_unit, subtotal=products_data[3].price_per_unit * 4.0)
+        db.add(item4)
+
+        leg3 = Delivery(
+            order_id=order2.id,
+            farmer_id=farmer_profile.id,
+            delivery_agent_id=None,
+            pickup_address=f"{farmer_profile.farm_name}, {farmer_profile.location}",
+            drop_address=order2.delivery_address,
+            pickup_lat=10.79,
+            pickup_lng=79.13,
+            drop_lat=13.08,
+            drop_lng=80.21,
+            status="unassigned",
+            payout_amount=70.0,
+            distance_km=5.4
+        )
+        db.add(leg3)
 
         db.commit()
         print(f"Farm2Home expanded seed completed successfully! {len(products_data)} products inserted.")

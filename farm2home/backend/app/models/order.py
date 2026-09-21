@@ -21,7 +21,10 @@ class Order(Base):
     pickup_lng = Column(Float, nullable=True)
     drop_lat = Column(Float, nullable=True)
     drop_lng = Column(Float, nullable=True)
+    delivery_slot = Column(String(50), nullable=True)
     notes = Column(Text, nullable=True)
+    proof_of_delivery_url = Column(String(500), nullable=True)
+    delivery_otp = Column(String(10), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -29,6 +32,8 @@ class Order(Base):
     customer = relationship("CustomerProfile", back_populates="orders")
     delivery_agent = relationship("DeliveryProfile", back_populates="assigned_orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    payment = relationship("Payment", back_populates="order", uselist=False, cascade="all, delete-orphan")
+    deliveries = relationship("Delivery", back_populates="order", cascade="all, delete-orphan")
 
 class OrderItem(Base):
     __tablename__ = "order_items"
@@ -36,6 +41,7 @@ class OrderItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    farmer_id = Column(Integer, ForeignKey("farmers.id"), nullable=False, index=True)
     quantity = Column(Float, nullable=False)
     unit_price = Column(Float, nullable=False)
     subtotal = Column(Float, nullable=False)
@@ -43,3 +49,4 @@ class OrderItem(Base):
     # Relationships
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")
+    farmer = relationship("FarmerProfile", back_populates="order_items")

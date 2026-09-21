@@ -66,3 +66,18 @@ class UpdateProfileRequest(BaseModel):
     vehicle_type: Optional[str] = None
     vehicle_number: Optional[str] = None
     license_number: Optional[str] = None
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+    role: str  # Expected role (farmer, customer, delivery)
+    mock_email: Optional[str] = None
+    mock_name: Optional[str] = None
+    mock_sub: Optional[str] = None
+

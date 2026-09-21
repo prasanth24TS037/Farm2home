@@ -7,7 +7,8 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import Base, engine
 from app.db.seed import seed_database
-from app.routers import auth, products, orders, delivery, admin, wishlist
+import app.models  # Ensure all SQLAlchemy models are registered
+from app.routers import auth, products, orders, delivery, admin, wishlist, cart, payments, analytics, ai_assistant
 
 # Ensure static uploads folder exists
 os.makedirs(os.path.join("app", "static", "uploads", "products"), exist_ok=True)
@@ -49,6 +50,10 @@ app.include_router(orders.router, prefix=settings.API_V1_STR)
 app.include_router(delivery.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(wishlist.router, prefix=settings.API_V1_STR)
+app.include_router(cart.router, prefix=settings.API_V1_STR)
+app.include_router(payments.router, prefix=settings.API_V1_STR)
+app.include_router(analytics.router, prefix=settings.API_V1_STR)
+app.include_router(ai_assistant.router, prefix=settings.API_V1_STR)
 
 @app.get("/api/health")
 def health_check():

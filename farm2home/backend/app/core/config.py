@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./farm2home.db")
+    GOOGLE_CLIENT_ID: Union[str, None] = None
     
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [

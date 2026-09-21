@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { productService } from '../services/productService';
+import { paymentService } from '../services/paymentService';
 import { getImageUrl } from '../utils/imageUtils';
 import { LanguageToggle } from '../components/common/LanguageToggle';
 import {
@@ -22,8 +23,12 @@ import {
   Check,
   X,
   RefreshCw,
-  Camera
+  Camera,
+  Wallet
 } from 'lucide-react';
+import { AnalyticsView } from './farmer/AnalyticsView';
+import { AIAssistantView } from './farmer/AIAssistantView';
+import { EarningsView } from './farmer/EarningsView';
 
 export const FarmerDashboard = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -31,9 +36,9 @@ export const FarmerDashboard = () => {
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState({
-    monthly_earnings: 48250,
-    active_orders: 14,
-    low_stock_count: 2
+    monthly_earnings: 0,
+    active_orders: 0,
+    low_stock_count: 0
   });
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,10 +85,8 @@ export const FarmerDashboard = () => {
 
   // Notification Bell State
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
-  const [notifications] = useState([
-    { id: 1, text: 'New order #ORD-2026-8891 received from Ananya S.', time: '10 mins ago', type: 'order' },
-    { id: 2, text: 'Low stock warning: Red Organic Onions (10 kg remaining)', time: '1 hr ago', type: 'warning' },
-    { id: 3, text: 'AI suggestion: Market rate for Tender Coconut increased by ₹3', time: '3 hrs ago', type: 'ai' }
+  const [notifications, setNotifications] = useState([
+    { id: 1, text: 'Welcome to your farm management console', time: 'Just now', type: 'order' }
   ]);
 
   const [dismissedAiHints, setDismissedAiHints] = useState({});
@@ -91,14 +94,23 @@ export const FarmerDashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [statsData, prodsData] = await Promise.all([
-        productService.getFarmerStats().catch(() => ({ monthly_earnings: 48250, active_orders: 14, low_stock_count: 2 })),
+      const [statsData, prodsData, notifsData] = await Promise.all([
+        productService.getFarmerStats().catch(() => ({ monthly_earnings: 0, active_orders: 0, low_stock_count: 0 })),
         productService.getMyProducts()
           .catch(() => productService.getProducts())
-          .catch(() => [])
+          .catch(() => []),
+        paymentService.getNotifications().catch(() => [])
       ]);
-      setStats(statsData || { monthly_earnings: 48250, active_orders: 14, low_stock_count: 2 });
+      setStats(statsData || { monthly_earnings: 0, active_orders: 0, low_stock_count: 0 });
       setProducts(Array.isArray(prodsData) ? prodsData : []);
+      if (Array.isArray(notifsData) && notifsData.length > 0) {
+        setNotifications(notifsData.map(n => ({
+          id: n.id,
+          text: `${n.title}: ${n.message}`,
+          time: n.created_at || 'Recently',
+          type: n.type || 'order'
+        })));
+      }
     } catch (err) {
       console.error("Error loading dashboard data:", err);
       setProducts([]);
@@ -333,18 +345,25 @@ export const FarmerDashboard = () => {
               <span>Orders</span>
             </div>
             <div
+              className={`nav-item ${activeTab === 'earnings' ? 'active' : ''}`}
+              onClick={() => setActiveTab('earnings')}
+            >
+              <Wallet size={18} />
+              <span>{t('earnings')}</span>
+            </div>
+            <div
               className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
               onClick={() => setActiveTab('analytics')}
             >
               <TrendingUp size={18} />
-              <span>Analytics</span>
+              <span>{t('analytics')}</span>
             </div>
             <div
               className={`nav-item ${activeTab === 'ai' ? 'active' : ''}`}
               onClick={() => setActiveTab('ai')}
             >
               <Bot size={18} />
-              <span>AI assistant</span>
+              <span>{t('aiAssistant')}</span>
             </div>
           </nav>
         </div>
@@ -430,345 +449,255 @@ export const FarmerDashboard = () => {
 
         {/* Dashboard Content */}
         <div className="dashboard-content">
-          {/* STAT CARDS ROW: Exactly 3 Stat Cards */}
-          <div className="stats-grid-3">
-            <div className="stat-card-clean">
-              <div className="stat-card-title">
-                <IndianRupee size={16} color="var(--color-success)" />
-                <span>{t('earningsThisMonth')}</span>
-              </div>
-              <div className="stat-card-value">₹{(stats?.monthly_earnings ?? 48250).toLocaleString()}</div>
-            </div>
+          {/* EARNINGS VIEW */}
+          {activeTab === 'earnings' && <EarningsView />}
 
-            <div className="stat-card-clean">
-              <div className="stat-card-title">
-                <Clock size={16} color="var(--color-accent-customer)" />
-                <span>{t('activeOrders')}</span>
-              </div>
-              <div className="stat-card-value">{stats?.active_orders ?? 14}</div>
-            </div>
-
-            <div className="stat-card-clean">
-              <div className="stat-card-title">
-                <AlertTriangle size={16} color="var(--color-warning)" />
-                <span>{t('lowStockAlert')}</span>
-              </div>
-              <div className="stat-card-value" style={{ color: (stats?.low_stock_count ?? 0) > 0 ? 'var(--color-warning)' : 'inherit' }}>
-                {stats?.low_stock_count ?? 0} items
-              </div>
-            </div>
-          </div>
-
-          {/* QUICK ACTIONS ROW: Always visible, 1-tap buttons */}
-          <div className="quick-actions-bar">
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {t('quickActions')}:
-            </span>
-            <button
-              className="quick-action-btn"
-              onClick={() => setShowAddModal(true)}
-            >
-              <PlusCircle size={16} color="var(--color-primary)" />
-              <span>{t('addProduct')}</span>
-            </button>
-            <button
-              className="quick-action-btn"
-              onClick={() => products.length > 0 && setEditingProduct(products[0])}
-            >
-              <Edit2 size={16} color="var(--color-primary)" />
-              <span>{t('updatePrice')}</span>
-            </button>
-            <button
-              className="quick-action-btn"
-              onClick={() => products.length > 0 && setStockEditingProduct(products[0])}
-            >
-              <RefreshCw size={16} color="var(--color-primary)" />
-              <span>{t('updateStock')}</span>
-            </button>
-            <button
-              className="quick-action-btn"
-              onClick={openOrdersModal}
-            >
-              <ShoppingBag size={16} color="var(--color-primary)" />
-              <span>{t('viewOrders')}</span>
-            </button>
-          </div>
-
-          {/* PRODUCT LIST WITH INLINE QUICK PRICE EDITING */}
-          <div className="product-table-wrapper">
-            <div className="table-header-row">
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 600 }}>{t('myProducts')}</h2>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={loadData}
-              >
-                <RefreshCw size={14} />
-                <span>Refresh</span>
-              </button>
-            </div>
-
-            <table className="table-clean">
-              <thead>
-                <tr>
-                  <th>Product name</th>
-                  <th>{t('stockStatus')}</th>
-                  <th>{t('currentPrice')}</th>
-                  <th style={{ textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((prod) => {
-                  const isLow = prod.stock_quantity <= prod.low_stock_threshold;
-                  const showAi = prod.ai_suggested_price && !dismissedAiHints[prod.id];
-
-                  return (
-                    <tr key={prod.id}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ position: 'relative', display: 'inline-block' }}>
-                            <img
-                              src={getImageUrl(prod.image_url)}
-                              alt={prod.name}
-                              style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-sm)', objectFit: 'cover' }}
-                            />
-                            <button
-                              onClick={() => {
-                                setImageEditingProduct(prod);
-                                setSelectedFile(null);
-                                setPreviewUrl('');
-                                setFileError('');
-                              }}
-                              style={{
-                                position: 'absolute',
-                                bottom: '-3px',
-                                right: '-3px',
-                                backgroundColor: 'var(--color-bg-surface)',
-                                border: '1px solid var(--color-primary-border)',
-                                borderRadius: '50%',
-                                width: '18px',
-                                height: '18px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
-                              }}
-                              title="Edit product photo"
-                            >
-                              <Camera size={10} color="var(--color-primary)" />
-                            </button>
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 500, color: 'var(--color-text-main)' }}>{prod.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                              {prod.unit} · {prod.is_organic ? 'Organic Certified' : 'Fresh Harvest'}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className={`badge ${isLow ? 'badge-warning' : 'badge-success'}`}>
-                            {isLow ? `${t('lowStock')} (${prod.stock_quantity} ${prod.unit})` : `${t('inStock')} (${prod.stock_quantity} ${prod.unit})`}
-                          </span>
-                          <button
-                            onClick={() => setStockEditingProduct(prod)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
-                            title="Quick edit stock"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                          <span style={{ fontWeight: 600, fontSize: '1rem' }}>
-                            ₹{prod.price_per_unit} / {prod.unit}
-                          </span>
-
-                          {showAi && (
-                            <span className="ai-hint-tag">
-                              <Sparkles size={12} />
-                              <span>{t('aiPriceHint', { price: prod.ai_suggested_price })}</span>
-                              <button
-                                onClick={() => applyAiPrice(prod)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a', padding: '0 2px' }}
-                                title="Apply suggestion"
-                              >
-                                <Check size={12} />
-                              </button>
-                              <button
-                                onClick={() => dismissAi(prod.id)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '0 2px' }}
-                                title="Dismiss"
-                              >
-                                <X size={12} />
-                              </button>
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => {
-                              setImageEditingProduct(prod);
-                              setSelectedFile(null);
-                              setPreviewUrl('');
-                              setFileError('');
-                            }}
-                            title="Edit product photo"
-                          >
-                            <Camera size={13} />
-                            <span>Photo</span>
-                          </button>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => {
-                              setEditingProduct(prod);
-                              setNewPrice(prod.price_per_unit);
-                            }}
-                          >
-                            <Edit2 size={13} />
-                            <span>{t('editPrice')}</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
           {/* ANALYTICS VIEW */}
-          {activeTab === 'analytics' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Farmer Sales & Revenue Analytics</h2>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Real-time earnings tracking and produce sales breakdown</p>
-                </div>
-                <div className="badge badge-success">
-                  <TrendingUp size={14} />
-                  <span>+14.5% vs last month</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                <div className="stat-card-clean">
-                  <div className="stat-card-title"><IndianRupee size={16} color="var(--color-success)" /> Monthly Revenue</div>
-                  <div className="stat-card-value">₹48,250</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>Direct farmer bank payout</div>
-                </div>
-                <div className="stat-card-clean">
-                  <div className="stat-card-title"><Clock size={16} color="var(--color-primary)" /> Fulfilled Orders</div>
-                  <div className="stat-card-value">14 Orders</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>100% on-time farm dispatch</div>
-                </div>
-                <div className="stat-card-clean">
-                  <div className="stat-card-title"><Sparkles size={16} color="#d97706" /> Customer Satisfaction</div>
-                  <div className="stat-card-value">4.9 / 5.0</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>Based on 48 customer ratings</div>
-                </div>
-              </div>
-
-              <div className="product-table-wrapper" style={{ padding: '20px' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '14px' }}>Top Selling Produce This Harvest Season</h3>
-                <table className="table-clean" style={{ width: '100%' }}>
-                  <thead>
-                    <tr>
-                      <th>Produce Item</th>
-                      <th>Quantity Sold</th>
-                      <th>Revenue Generated</th>
-                      <th>Performance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ fontWeight: 500 }}>Traditional Mappillai Samba Rice</td>
-                      <td>200 kg</td>
-                      <td style={{ fontWeight: 600 }}>₹24,000</td>
-                      <td><span className="badge badge-success">High Demand</span></td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 500 }}>Red Organic Onions</td>
-                      <td>320 kg</td>
-                      <td style={{ fontWeight: 600 }}>₹11,200</td>
-                      <td><span className="badge badge-warning">Low Stock</span></td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 500 }}>Pollachi Tender Coconut</td>
-                      <td>160 pieces</td>
-                      <td style={{ fontWeight: 600 }}>₹7,200</td>
-                      <td><span className="badge badge-success">Steady Sales</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {activeTab === 'analytics' && <AnalyticsView />}
 
           {/* AI ASSISTANT VIEW */}
           {activeTab === 'ai' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Farm2Home AI Assistant & Price Advisor</h2>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Market rate forecasting & direct farm pricing recommendations</p>
+            <AIAssistantView
+              onQuickPrice={(p) => {
+                setEditingProduct(p);
+                setNewPrice(p.price_per_unit);
+              }}
+              onQuickStock={(p) => {
+                setStockEditingProduct(p);
+                setNewStock(p.stock_quantity);
+              }}
+              onViewOrders={openOrdersModal}
+            />
+          )}
+
+          {/* DEFAULT DASHBOARD & PRODUCTS VIEW */}
+          {(activeTab === 'dashboard' || activeTab === 'products' || activeTab === 'orders' || activeTab === 'settings') && (
+            <>
+              {/* STAT CARDS ROW: Exactly 3 Stat Cards */}
+              <div className="stats-grid-3">
+                <div
+                  className="stat-card-clean"
+                  onClick={() => setActiveTab('earnings')}
+                  style={{ cursor: 'pointer' }}
+                  title="View detailed earnings & payouts"
+                >
+                  <div className="stat-card-title">
+                    <IndianRupee size={16} color="var(--color-success)" />
+                    <span>{t('earningsThisMonth')}</span>
+                  </div>
+                  <div className="stat-card-value">₹{(stats?.monthly_earnings ?? 48250).toLocaleString()}</div>
                 </div>
-                <div className="badge badge-primary">
-                  <Bot size={14} />
-                  <span>AI Engine Active</span>
+
+                <div
+                  className="stat-card-clean"
+                  onClick={openOrdersModal}
+                  style={{ cursor: 'pointer' }}
+                  title="View customer orders"
+                >
+                  <div className="stat-card-title">
+                    <Clock size={16} color="var(--color-accent-customer)" />
+                    <span>{t('activeOrders')}</span>
+                  </div>
+                  <div className="stat-card-value">{stats?.active_orders ?? 0}</div>
+                </div>
+
+                <div className="stat-card-clean">
+                  <div className="stat-card-title">
+                    <AlertTriangle size={16} color="var(--color-warning)" />
+                    <span>{t('lowStockAlert')}</span>
+                  </div>
+                  <div className="stat-card-value" style={{ color: (stats?.low_stock_count ?? 0) > 0 ? 'var(--color-warning)' : 'inherit' }}>
+                    {stats?.low_stock_count ?? 0} items
+                  </div>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="stat-card-clean" style={{ borderLeft: '4px solid var(--color-primary)' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Sparkles size={16} color="var(--color-primary)" /> Market Demand Forecast
-                  </h3>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                    High regional demand detected for <b>Organic Red Onions</b> and <b>Tender Coconuts</b> in Chennai & Madurai delta hubs. Market rates expected to rise 8% next week.
-                  </p>
-                </div>
-
-                <div className="stat-card-clean" style={{ borderLeft: '4px solid #16a34a' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Check size={16} color="#16a34a" /> Harvest Timing Advisory
-                  </h3>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                    Optimal harvest window for <b>Spinach & Green Peppers</b>: early morning pickup to ensure maximum shelf life and 100% farm-fresh customer satisfaction.
-                  </p>
-                </div>
+              {/* QUICK ACTIONS ROW: Always visible, 1-tap buttons */}
+              <div className="quick-actions-bar">
+                <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {t('quickActions')}:
+                </span>
+                <button
+                  className="quick-action-btn"
+                  onClick={() => setShowAddModal(true)}
+                >
+                  <PlusCircle size={16} color="var(--color-primary)" />
+                  <span>{t('addProduct')}</span>
+                </button>
+                <button
+                  className="quick-action-btn"
+                  onClick={() => products.length > 0 && setEditingProduct(products[0])}
+                >
+                  <Edit2 size={16} color="var(--color-primary)" />
+                  <span>{t('updatePrice')}</span>
+                </button>
+                <button
+                  className="quick-action-btn"
+                  onClick={() => products.length > 0 && setStockEditingProduct(products[0])}
+                >
+                  <RefreshCw size={16} color="var(--color-primary)" />
+                  <span>{t('updateStock')}</span>
+                </button>
+                <button
+                  className="quick-action-btn"
+                  onClick={openOrdersModal}
+                >
+                  <ShoppingBag size={16} color="var(--color-primary)" />
+                  <span>{t('viewOrders')}</span>
+                </button>
               </div>
 
-              <div className="product-table-wrapper" style={{ padding: '20px' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '14px' }}>AI Recommended Price Adjustments</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {products.map(prod => (
-                    <div key={prod.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', backgroundColor: 'var(--color-bg-app)', borderRadius: 'var(--radius-sm)' }}>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{prod.name}</div>
-                        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                          Current: ₹{prod.price_per_unit} / {prod.unit} · Market benchmark: ₹{prod.ai_suggested_price || prod.price_per_unit + 3} / {prod.unit}
-                        </div>
-                      </div>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => applyAiPrice({ ...prod, ai_suggested_price: prod.ai_suggested_price || prod.price_per_unit + 3 })}
-                      >
-                        <Sparkles size={13} />
-                        <span>Apply AI Rate (₹{prod.ai_suggested_price || prod.price_per_unit + 3})</span>
-                      </button>
-                    </div>
-                  ))}
+              {/* PRODUCT LIST WITH INLINE QUICK PRICE EDITING */}
+              <div className="product-table-wrapper">
+                <div className="table-header-row">
+                  <h2 style={{ fontSize: '1.05rem', fontWeight: 600 }}>{t('myProducts')}</h2>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={loadData}
+                  >
+                    <RefreshCw size={14} />
+                    <span>Refresh</span>
+                  </button>
                 </div>
+
+                <table className="table-clean">
+                  <thead>
+                    <tr>
+                      <th>Product name</th>
+                      <th>{t('stockStatus')}</th>
+                      <th>{t('currentPrice')}</th>
+                      <th style={{ textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((prod) => {
+                      const isLow = prod.stock_quantity <= prod.low_stock_threshold;
+                      const showAi = prod.ai_suggested_price && !dismissedAiHints[prod.id];
+
+                      return (
+                        <tr key={prod.id}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ position: 'relative', display: 'inline-block' }}>
+                                <img
+                                  src={getImageUrl(prod.image_url)}
+                                  alt={prod.name}
+                                  style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-sm)', objectFit: 'cover' }}
+                                />
+                                <button
+                                  onClick={() => {
+                                    setImageEditingProduct(prod);
+                                    setSelectedFile(null);
+                                    setPreviewUrl('');
+                                    setFileError('');
+                                  }}
+                                  style={{
+                                    position: 'absolute',
+                                    bottom: '-3px',
+                                    right: '-3px',
+                                    backgroundColor: 'var(--color-bg-surface)',
+                                    border: '1px solid var(--color-primary-border)',
+                                    borderRadius: '50%',
+                                    width: '18px',
+                                    height: '18px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                                  }}
+                                  title="Edit product photo"
+                                >
+                                  <Camera size={10} color="var(--color-primary)" />
+                                </button>
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 500, color: 'var(--color-text-main)' }}>{prod.name}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                  {prod.unit} · {prod.is_organic ? 'Organic Certified' : 'Fresh Harvest'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span className={`badge ${isLow ? 'badge-warning' : 'badge-success'}`}>
+                                {isLow ? `${t('lowStock')} (${prod.stock_quantity} ${prod.unit})` : `${t('inStock')} (${prod.stock_quantity} ${prod.unit})`}
+                              </span>
+                              <button
+                                onClick={() => setStockEditingProduct(prod)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+                                title="Quick edit stock"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                              <span style={{ fontWeight: 600, fontSize: '1rem' }}>
+                                ₹{prod.price_per_unit} / {prod.unit}
+                              </span>
+
+                              {showAi && (
+                                <span className="ai-hint-tag">
+                                  <Sparkles size={12} />
+                                  <span>{t('aiPriceHint', { price: prod.ai_suggested_price })}</span>
+                                  <button
+                                    onClick={() => applyAiPrice(prod)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a', padding: '0 2px' }}
+                                    title="Apply suggestion"
+                                  >
+                                    <Check size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => dismissAi(prod.id)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '0 2px' }}
+                                    title="Dismiss"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => {
+                                  setImageEditingProduct(prod);
+                                  setSelectedFile(null);
+                                  setPreviewUrl('');
+                                  setFileError('');
+                                }}
+                                title="Edit product photo"
+                              >
+                                <Camera size={13} />
+                                <span>Photo</span>
+                              </button>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => {
+                                  setEditingProduct(prod);
+                                  setNewPrice(prod.price_per_unit);
+                                }}
+                              >
+                                <Edit2 size={13} />
+                                <span>{t('editPrice')}</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            </>
           )}
         </div>
       </main>
@@ -955,7 +884,7 @@ export const FarmerDashboard = () => {
       {/* ORDERS MODAL */}
       {showOrdersModal && (
         <div className="modal-overlay" onClick={() => setShowOrdersModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', width: '100%' }}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '780px', width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShoppingBag size={20} color="var(--color-primary)" />
@@ -995,6 +924,7 @@ export const FarmerDashboard = () => {
                     <tr>
                       <th>Order #</th>
                       <th>Customer & Address</th>
+                      <th>Delivery Partner</th>
                       <th>Amount</th>
                       <th>Status</th>
                       <th style={{ textAlign: 'right' }}>Action</th>
@@ -1009,7 +939,36 @@ export const FarmerDashboard = () => {
                         </td>
                         <td>
                           <div style={{ fontWeight: 500 }}>{ord.customer_name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{ord.delivery_address || 'Local Delta Region'}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{ord.delivery_address || 'Customer Delivery Address'}</div>
+                          {ord.items_summary && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', marginTop: '2px', fontWeight: 500 }}>
+                              🌾 {ord.items_summary}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          {ord.delivery_agent ? (
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--color-accent-delivery, #0284c7)' }}>
+                                🛵 {ord.delivery_agent.name}
+                              </div>
+                              {ord.delivery_agent.phone && (
+                                <a
+                                  href={`tel:${ord.delivery_agent.phone}`}
+                                  style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textDecoration: 'none', display: 'block', marginTop: '2px' }}
+                                >
+                                  📞 {ord.delivery_agent.phone}
+                                </a>
+                              )}
+                              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'capitalize' }}>
+                                Leg: {ord.delivery_status || 'Assigned'}
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: '#ea580c', backgroundColor: '#fff7ed', padding: '3px 8px', borderRadius: '4px', border: '1px solid #ffedd5', display: 'inline-block' }}>
+                              ⏳ Finding a delivery partner…
+                            </span>
+                          )}
                         </td>
                         <td style={{ fontWeight: 600 }}>₹{ord.total_amount}</td>
                         <td>
@@ -1025,8 +984,13 @@ export const FarmerDashboard = () => {
                           {ord.status === 'pending' && (
                             <button
                               className="btn btn-primary btn-sm"
-                              onClick={() => {
-                                setOrders(prev => prev.map(o => o.id === ord.id ? { ...o, status: 'processing' } : o));
+                              onClick={async () => {
+                                try {
+                                  await productService.updateFarmerOrderStatus(ord.id, 'processing');
+                                  setOrders(prev => prev.map(o => o.id === ord.id ? { ...o, status: 'processing' } : o));
+                                } catch (e) {
+                                  console.error('Failed to update order status', e);
+                                }
                               }}
                             >
                               Accept Order
@@ -1036,8 +1000,13 @@ export const FarmerDashboard = () => {
                             <button
                               className="btn btn-secondary btn-sm"
                               style={{ color: 'var(--color-success)', borderColor: 'var(--color-success)' }}
-                              onClick={() => {
-                                setOrders(prev => prev.map(o => o.id === ord.id ? { ...o, status: 'delivered' } : o));
+                              onClick={async () => {
+                                try {
+                                  await productService.updateFarmerOrderStatus(ord.id, 'delivered');
+                                  setOrders(prev => prev.map(o => o.id === ord.id ? { ...o, status: 'delivered' } : o));
+                                } catch (e) {
+                                  console.error('Failed to update order status', e);
+                                }
                               }}
                             >
                               Mark Delivered

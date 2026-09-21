@@ -24,5 +24,20 @@ export const authService = {
   updateProfile: async (data) => {
     const response = await api.patch('/auth/me', data);
     return response.data;
-  }
+  },
+
+  forgotPassword: async (email) => {
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data;
+  },
+
+  resetPassword: async (token, new_password) => {
+    const response = await api.post('/auth/reset-password', { token, new_password });
+    return response.data;
+  },
+
+  googleLogin: async (id_token, role) => {
+    const response = await api.post('/auth/google', { id_token, role });
+    return response.data;
+  },
 };

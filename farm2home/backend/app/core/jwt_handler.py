@@ -45,11 +45,10 @@ def get_current_user_token(credentials: Optional[HTTPAuthorizationCredentials] =
 def require_role(allowed_roles: list[str]):
     def role_checker(token_payload: Dict[str, Any] = Depends(get_current_user_token)):
         user_role = token_payload.get("role")
-        if user_role not in allowed_roles and "admin" not in allowed_roles and user_role != "admin":
-            if user_role not in allowed_roles:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Access denied. Allowed roles: {', '.join(allowed_roles)}"
-                )
+        if user_role not in allowed_roles and user_role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Allowed roles: {', '.join(allowed_roles)}"
+            )
         return token_payload
     return role_checker

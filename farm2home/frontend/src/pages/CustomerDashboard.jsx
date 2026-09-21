@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { productService } from '../services/productService';
+import { orderService } from '../services/orderService';
 import { LanguageToggle } from '../components/common/LanguageToggle';
 import { getImageUrl } from '../utils/imageUtils';
 import {
@@ -33,6 +35,8 @@ export const CustomerDashboard = () => {
   const { user, logout, updateProfile } = useAuth();
   const { cartItems, addToCart, updateQuantity, removeFromCart, totalItemsCount, cartTotalAmount, clearCart } = useCart();
   const { t, lang, setLang } = useLanguage();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -49,6 +53,8 @@ export const CustomerDashboard = () => {
   const [profileSuccess, setProfileSuccess] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showOrdersModal, setShowOrdersModal] = useState(false);
+  const [myOrders, setMyOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Wishlist State
   const [wishlistIds, setWishlistIds] = useState([]);
@@ -137,13 +143,32 @@ export const CustomerDashboard = () => {
     return matchesSearch && matchesCat;
   });
 
-  const handleCheckout = () => {
-    setOrderPlacedSuccess(true);
-    clearCart();
-    setTimeout(() => {
-      setOrderPlacedSuccess(false);
-      setShowCartDrawer(false);
-    }, 2800);
+  const loadMyOrders = async () => {
+    try {
+      setLoadingOrders(true);
+      const orders = await orderService.getMyOrders();
+      setMyOrders(orders || []);
+    } catch (err) {
+      console.warn('Failed to load orders', err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const openOrdersModal = () => {
+    setShowOrdersModal(true);
+    loadMyOrders();
+  };
+
+  useEffect(() => {
+    if (location.state?.openOrders) {
+      openOrdersModal();
+    }
+  }, [location.state]);
+
+  const handleProceedToCheckout = () => {
+    setShowCartDrawer(false);
+    navigate('/checkout');
   };
 
   const getCategoryIcon = (iconName) => {
@@ -250,6 +275,15 @@ export const CustomerDashboard = () => {
                 {totalItemsCount}
               </span>
             )}
+          </button>
+
+          {/* My Orders Button */}
+          <button
+            className="icon-btn"
+            onClick={openOrdersModal}
+            title="My Orders"
+          >
+            <ShoppingBag size={18} />
           </button>
 
           {/* Profile Avatar & Logout */}
@@ -494,13 +528,25 @@ export const CustomerDashboard = () => {
                     <span style={{ color: 'var(--color-primary)' }}>₹{cartTotalAmount + 30}</span>
                   </div>
 
-                  <button
-                    className="btn btn-primary btn-lg"
-                    style={{ width: '100%', marginTop: '8px' }}
-                    onClick={handleCheckout}
-                  >
-                    Confirm & Place Farm Order (₹{cartTotalAmount + 30})
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    <button
+                      className="btn btn-primary btn-lg"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                      onClick={handleProceedToCheckout}
+                    >
+                      Proceed to Checkout (₹{cartTotalAmount + 30})
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                      onClick={() => {
+                        setShowCartDrawer(false);
+                        navigate('/cart');
+                      }}
+                    >
+                      View Full Basket Page
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -673,33 +719,65 @@ export const CustomerDashboard = () => {
             </div>
 
             <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
-              <table className="table-clean" style={{ width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th>Order #</th>
-                    <th>Items</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { id: 'ORD-2026-8891', items: 'Red Onions, Tender Coconut', total: 355, status: 'In Transit' },
-                    { id: 'ORD-2026-8712', items: 'Mappillai Samba Rice 10kg', total: 1200, status: 'Delivered' }
-                  ].map((ord) => (
-                    <tr key={ord.id}>
-                      <td style={{ fontWeight: 600 }}>{ord.id}</td>
-                      <td>{ord.items}</td>
-                      <td style={{ fontWeight: 600 }}>₹{ord.total}</td>
-                      <td>
-                        <span className={`badge ${ord.status === 'Delivered' ? 'badge-success' : 'badge-warning'}`}>
-                          {ord.status}
-                        </span>
-                      </td>
+              {loadingOrders ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--color-text-muted)' }}>
+                  Loading your orders...
+                </div>
+              ) : myOrders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-muted)' }}>
+                  <ShoppingBag size={36} style={{ margin: '0 auto 8px auto', opacity: 0.4 }} />
+                  <p>No orders placed yet.</p>
+                </div>
+              ) : (
+                <table className="table-clean" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Order #</th>
+                      <th>Items</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                      <th>Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {myOrders.map((ord) => (
+                      <tr key={ord.id}>
+                        <td style={{ fontWeight: 600 }}>{ord.order_number}</td>
+                        <td style={{ fontSize: '0.8125rem' }}>
+                          {ord.items?.map(i => `${i.name} (${i.quantity}${i.unit})`).join(', ') || 'Produce'}
+                        </td>
+                        <td style={{ fontWeight: 600 }}>₹{ord.total_amount}</td>
+                        <td>
+                          <span className={`badge ${ord.status === 'delivered' ? 'badge-success' : ord.status === 'confirmed' ? 'badge-primary' : 'badge-warning'}`}>
+                            {ord.status}
+                          </span>
+                          {ord.delivery_agent ? (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--color-primary)', marginTop: '3px', fontWeight: 500 }}>
+                              🛵 {ord.delivery_agent.name}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '0.72rem', color: '#ea580c', marginTop: '3px' }}>
+                              ⏳ Finding partner…
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            onClick={() => {
+                              setShowOrdersModal(false);
+                              navigate(`/order-confirmation/${ord.id}`);
+                            }}
+                          >
+                            Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
