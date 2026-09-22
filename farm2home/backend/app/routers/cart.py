@@ -92,8 +92,8 @@ def add_to_cart(
 ):
     user_id = int(token_payload.get("sub"))
     product = db.query(Product).filter(Product.id == req.product_id).first()
-    if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    if not product or not product.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product is unavailable or discontinued")
 
     if product.stock_quantity <= 0:
         raise HTTPException(

@@ -31,6 +31,8 @@ class Product(Base):
     review_count = Column(Integer, default=0)
     ai_suggested_price = Column(Float, nullable=True)
     ai_price_confidence = Column(Float, default=0.92)
+    is_active = Column(Boolean, default=True, index=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

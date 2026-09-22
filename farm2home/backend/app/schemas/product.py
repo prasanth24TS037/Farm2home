@@ -38,6 +38,8 @@ class ProductResponse(BaseModel):
     ai_price_confidence: Optional[float]
     farmer_name: Optional[str] = None
     farmer_location: Optional[str] = None
+    is_active: bool = True
+    has_orders: bool = False
 
     class Config:
         from_attributes = True

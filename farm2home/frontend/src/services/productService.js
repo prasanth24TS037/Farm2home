@@ -6,8 +6,10 @@ export const productService = {
     return response.data;
   },
 
-  getMyProducts: async () => {
-    const response = await api.get('/products/my-products');
+  getMyProducts: async (includeDeleted = false) => {
+    const response = await api.get('/products/my-products', {
+      params: { include_deleted: includeDeleted }
+    });
     return response.data;
   },
 
@@ -84,5 +86,15 @@ export const productService = {
     } catch (err) {
       return { status: 'success', product_id: productId };
     }
+  },
+
+  deleteProduct: async (productId) => {
+    const response = await api.delete(`/products/${productId}`);
+    return response.data;
+  },
+
+  restoreProduct: async (productId) => {
+    const response = await api.post(`/products/${productId}/restore`);
+    return response.data;
   }
 };

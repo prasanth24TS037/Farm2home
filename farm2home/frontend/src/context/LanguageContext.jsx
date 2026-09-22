@@ -156,7 +156,26 @@ const translations = {
     filterPending: 'Pending Settlement',
     filterPaid: 'Paid Out',
     payoutHistory: 'Payout History',
-    noTransactionsYet: 'No earning transactions yet. Your confirmed orders will reflect here automatically.'
+    noTransactionsYet: 'No earning transactions yet. Your confirmed orders will reflect here automatically.',
+    // Product Delete & Archive
+    delete: 'Delete',
+    deleteProduct: 'Delete product',
+    deleteProductTitle: 'Remove Product',
+    deleteConfirmTitle: 'Are you sure you want to remove this product?',
+    deleteConfirmArchive: 'This product has existing customer orders. It will be safely archived and hidden from your store, preserving all past order and earnings history.',
+    deleteConfirmHard: 'This product has no order history and will be permanently deleted from your store catalog.',
+    confirmDeleteAction: 'Yes, Delete',
+    confirmArchiveAction: 'Yes, Archive',
+    cancel: 'Cancel',
+    showArchived: 'Show archived',
+    hideArchived: 'Hide archived',
+    archivedBadge: 'Archived',
+    restore: 'Restore',
+    restoreProduct: 'Restore product',
+    restoreConfirm: 'Restore this product back to your active store catalog?',
+    productDeletedSuccess: 'Product permanently removed.',
+    productArchivedSuccess: 'Product archived successfully. Historical orders preserved.',
+    productRestoredSuccess: 'Product restored to active catalog.'
   },
   ta: {
     appTitle: 'Farm2Home (பண்ணை2வீடு)',
@@ -312,7 +331,26 @@ const translations = {
     filterPending: 'நிலுவையில் உள்ளவை',
     filterPaid: 'பரிமாற்றம் செய்யப்பட்டது',
     payoutHistory: 'பணப்பரிமாற்ற வரலாறு',
-    noTransactionsYet: 'பரிவர்த்தனைகள் எதுவும் இல்லை. ஆர்டர்கள் வந்தவுடன் இங்கு தோன்றும்.'
+    noTransactionsYet: 'பரிவர்த்தனைகள் எதுவும் இல்லை. ஆர்டர்கள் வந்தவுடன் இங்கு தோன்றும்.',
+    // Product Delete & Archive
+    delete: 'நீக்கு',
+    deleteProduct: 'பொருளை நீக்கு',
+    deleteProductTitle: 'விளைபொருளை நீக்குதல்',
+    deleteConfirmTitle: 'இந்த பொருளை உங்கள் கடையிலிருந்து நீக்க விரும்புகிறீர்களா?',
+    deleteConfirmArchive: 'இந்த பொருளுக்கு வாடிக்கையாளர் ஆர்டர்கள் உள்ளதால், இது பாதுகாப்பாக ஆவணப்படுத்தப்பட்டு மறைக்கப்படும். உங்கள் பழைய ஆர்டர்கள் மற்றும் வருமான கணக்குகள் அப்படியே இருக்கும்.',
+    deleteConfirmHard: 'இந்த பொருளுக்கு முந்தைய ஆர்டர்கள் எதுவும் இல்லாததால், இது உங்கள் கடையிலிருந்து நிரந்தரமாக நீக்கப்படும்.',
+    confirmDeleteAction: 'ஆம், நிரந்தரமாக நீக்கு',
+    confirmArchiveAction: 'ஆம், ஆவணப்படுத்து',
+    cancel: 'ரத்து செய்',
+    showArchived: 'ஆவணப்படுத்தியவை',
+    hideArchived: 'மறைக்கவும்',
+    archivedBadge: 'ஆவணப்படுத்தப்பட்டது',
+    restore: 'மீட்டெடு',
+    restoreProduct: 'பொருளை மீட்டெடு',
+    restoreConfirm: 'இந்த விளைபொருளை மீண்டும் உங்கள் நேரடி கடையில் சேர்க்க விரும்புகிறீர்களா?',
+    productDeletedSuccess: 'பொருள் வெற்றிகரமாக நீக்கப்பட்டது.',
+    productArchivedSuccess: 'பொருள் பாதுகாப்பாக ஆவணப்படுத்தப்பட்டது. முந்தைய ஆர்டர்கள் பாதுகாக்கப்பட்டுள்ளன.',
+    productRestoredSuccess: 'பொருள் மீண்டும் கடையில் சேர்க்கப்பட்டது.'
   },
   hi: {
     appTitle: 'Farm2Home (फार्म2होम)',
@@ -468,7 +506,26 @@ const translations = {
     filterPending: 'लंबित निपटान',
     filterPaid: 'भुगतान संपन्न',
     payoutHistory: 'भुगतान इतिहास',
-    noTransactionsYet: 'अभी कोई लेनदेन नहीं है। नए ऑर्डर यहां स्वतः दिखाई देंगे।'
+    noTransactionsYet: 'अभी कोई लेनदेन नहीं है। नए ऑर्डर यहां स्वतः दिखाई देंगे।',
+    // Product Delete & Archive
+    delete: 'हटाएं',
+    deleteProduct: 'उत्पाद हटाएं',
+    deleteProductTitle: 'उत्पाद हटाना',
+    deleteConfirmTitle: 'क्या आप इस उत्पाद को हटाना चाहते हैं?',
+    deleteConfirmArchive: 'इस उत्पाद के पिछले ग्राहक ऑर्डर मौजूद हैं। इसे सुरक्षित रूप से संग्रहित (archive) किया जाएगा ताकि आपके सभी पुराने ऑर्डर और आय का रिकॉर्ड सुरक्षित रहे।',
+    deleteConfirmHard: 'इस उत्पाद का कोई पिछला ऑर्डर नहीं है, इसलिए इसे आपकी दुकान से हमेशा के लिए हटा दिया जाएगा।',
+    confirmDeleteAction: 'हाँ, हटाएं',
+    confirmArchiveAction: 'हाँ, संग्रहित करें',
+    cancel: 'रद्द करें',
+    showArchived: 'संग्रहित देखें',
+    hideArchived: 'छिपाएं',
+    archivedBadge: 'संग्रहित',
+    restore: 'पुनर्स्थापित करें',
+    restoreProduct: 'उत्पाद पुनर्स्थापित करें',
+    restoreConfirm: 'क्या आप इस उत्पाद को वापस अपनी सक्रिय दुकान में जोड़ना चाहते हैं?',
+    productDeletedSuccess: 'उत्पाद सफलतापूर्वक हटा दिया गया।',
+    productArchivedSuccess: 'उत्पाद संग्रहित किया गया। पुराने ऑर्डर सुरक्षित हैं।',
+    productRestoredSuccess: 'उत्पाद वापस दुकान में बहाल कर दिया गया।'
   }
 };
 

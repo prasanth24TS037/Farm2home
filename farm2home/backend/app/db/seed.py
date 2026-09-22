@@ -50,6 +50,14 @@ def ensure_schema_columns():
                 WHERE farmer_id IS NULL AND product_id IN (SELECT id FROM products)
             """))
 
+            # Products table schema updates
+            res_prod = conn.execute(text("PRAGMA table_info(products)"))
+            prod_cols = [row[1] for row in res_prod.fetchall()]
+            if prod_cols and "is_active" not in prod_cols:
+                conn.execute(text("ALTER TABLE products ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+            if prod_cols and "deleted_at" not in prod_cols:
+                conn.execute(text("ALTER TABLE products ADD COLUMN deleted_at DATETIME"))
+
             conn.commit()
     except Exception as e:
         print(f"Schema check notice: {e}")

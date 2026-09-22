@@ -24,7 +24,10 @@ import {
   X,
   RefreshCw,
   Camera,
-  Wallet
+  Wallet,
+  Trash2,
+  Archive,
+  RotateCcw
 } from 'lucide-react';
 import { AnalyticsView } from './farmer/AnalyticsView';
 import { AIAssistantView } from './farmer/AIAssistantView';
@@ -91,12 +94,28 @@ export const FarmerDashboard = () => {
 
   const [dismissedAiHints, setDismissedAiHints] = useState({});
 
-  const loadData = async () => {
+  // Product Delete & Archive State
+  const [deletingProduct, setDeletingProduct] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [restoringProductId, setRestoringProductId] = useState(null);
+  const [deleteNotice, setDeleteNotice] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    if (deleteNotice.text) {
+      const timer = setTimeout(() => {
+        setDeleteNotice({ type: '', text: '' });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [deleteNotice]);
+
+  const loadData = async (includeArchived = showArchived) => {
     try {
       setLoading(true);
       const [statsData, prodsData, notifsData] = await Promise.all([
         productService.getFarmerStats().catch(() => ({ monthly_earnings: 0, active_orders: 0, low_stock_count: 0 })),
-        productService.getMyProducts()
+        productService.getMyProducts(includeArchived)
           .catch(() => productService.getProducts())
           .catch(() => []),
         paymentService.getNotifications().catch(() => [])
@@ -122,6 +141,54 @@ export const FarmerDashboard = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  const toggleShowArchived = () => {
+    const nextVal = !showArchived;
+    setShowArchived(nextVal);
+    loadData(nextVal);
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!deletingProduct) return;
+    try {
+      setIsDeleting(true);
+      const res = await productService.deleteProduct(deletingProduct.id);
+      
+      if (res.action === 'archived') {
+        if (showArchived) {
+          setProducts(prev => prev.map(p => p.id === deletingProduct.id ? { ...p, is_active: false } : p));
+        } else {
+          setProducts(prev => prev.filter(p => p.id !== deletingProduct.id));
+        }
+        setDeleteNotice({ type: 'success', text: t('productArchivedSuccess') });
+      } else {
+        setProducts(prev => prev.filter(p => p.id !== deletingProduct.id));
+        setDeleteNotice({ type: 'success', text: t('productDeletedSuccess') });
+      }
+      setDeletingProduct(null);
+    } catch (err) {
+      console.error("Error deleting product:", err);
+      const errMsg = err.response?.data?.detail || "Failed to remove product. Please try again.";
+      setDeleteNotice({ type: 'error', text: errMsg });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleRestoreProduct = async (prod) => {
+    try {
+      setRestoringProductId(prod.id);
+      await productService.restoreProduct(prod.id);
+      setProducts(prev => prev.map(p => p.id === prod.id ? { ...p, is_active: true } : p));
+      setDeleteNotice({ type: 'success', text: t('productRestoredSuccess') });
+    } catch (err) {
+      console.error("Error restoring product:", err);
+      const errMsg = err.response?.data?.detail || "Failed to restore product. Please try again.";
+      setDeleteNotice({ type: 'error', text: errMsg });
+    } finally {
+      setRestoringProductId(null);
+    }
+  };
 
   const openProfileModal = () => {
     setProfileStatus({ error: '', success: '' });
@@ -549,15 +616,60 @@ export const FarmerDashboard = () => {
 
               {/* PRODUCT LIST WITH INLINE QUICK PRICE EDITING */}
               <div className="product-table-wrapper">
-                <div className="table-header-row">
-                  <h2 style={{ fontSize: '1.05rem', fontWeight: 600 }}>{t('myProducts')}</h2>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={loadData}
+                {deleteNotice.text && (
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      marginBottom: '14px',
+                      borderRadius: 'var(--radius-sm)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '0.875rem',
+                      backgroundColor: deleteNotice.type === 'error' ? '#fef2f2' : '#f0fdf4',
+                      border: `1px solid ${deleteNotice.type === 'error' ? '#fecaca' : '#bbf7d0'}`,
+                      color: deleteNotice.type === 'error' ? '#b91c1c' : '#15803d'
+                    }}
                   >
-                    <RefreshCw size={14} />
-                    <span>Refresh</span>
-                  </button>
+                    <span>{deleteNotice.text}</span>
+                    <button
+                      onClick={() => setDeleteNotice({ type: '', text: '' })}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0 }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="table-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h2 style={{ fontSize: '1.05rem', fontWeight: 600 }}>{t('myProducts')}</h2>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', backgroundColor: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>
+                      {products.length}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${showArchived ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={toggleShowArchived}
+                      title={showArchived ? t('hideArchived') : t('showArchived')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                    >
+                      <Archive size={13} />
+                      <span>{showArchived ? t('hideArchived') : t('showArchived')}</span>
+                    </button>
+
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => loadData(showArchived)}
+                      title="Refresh products list"
+                    >
+                      <RefreshCw size={14} />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
                 </div>
 
                 <table className="table-clean">
@@ -570,12 +682,19 @@ export const FarmerDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map((prod) => {
+                    {products.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--color-text-muted)' }}>
+                          {showArchived ? 'No archived products found.' : 'No products listed yet. Click "Add produce" to begin selling!'}
+                        </td>
+                      </tr>
+                    ) : products.map((prod) => {
                       const isLow = prod.stock_quantity <= prod.low_stock_threshold;
                       const showAi = prod.ai_suggested_price && !dismissedAiHints[prod.id];
+                      const isArchived = prod.is_active === false;
 
                       return (
-                        <tr key={prod.id}>
+                        <tr key={prod.id} style={isArchived ? { opacity: 0.75, backgroundColor: '#f8fafc' } : {}}>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                               <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -584,35 +703,44 @@ export const FarmerDashboard = () => {
                                   alt={prod.name}
                                   style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-sm)', objectFit: 'cover' }}
                                 />
-                                <button
-                                  onClick={() => {
-                                    setImageEditingProduct(prod);
-                                    setSelectedFile(null);
-                                    setPreviewUrl('');
-                                    setFileError('');
-                                  }}
-                                  style={{
-                                    position: 'absolute',
-                                    bottom: '-3px',
-                                    right: '-3px',
-                                    backgroundColor: 'var(--color-bg-surface)',
-                                    border: '1px solid var(--color-primary-border)',
-                                    borderRadius: '50%',
-                                    width: '18px',
-                                    height: '18px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
-                                  }}
-                                  title="Edit product photo"
-                                >
-                                  <Camera size={10} color="var(--color-primary)" />
-                                </button>
+                                {!isArchived && (
+                                  <button
+                                    onClick={() => {
+                                      setImageEditingProduct(prod);
+                                      setSelectedFile(null);
+                                      setPreviewUrl('');
+                                      setFileError('');
+                                    }}
+                                    style={{
+                                      position: 'absolute',
+                                      bottom: '-4px',
+                                      right: '-4px',
+                                      background: '#ffffff',
+                                      border: '1px solid var(--color-border)',
+                                      borderRadius: '50%',
+                                      width: '18px',
+                                      height: '18px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                                    }}
+                                    title="Edit product photo"
+                                  >
+                                    <Camera size={10} color="var(--color-primary)" />
+                                  </button>
+                                )}
                               </div>
                               <div>
-                                <div style={{ fontWeight: 500, color: 'var(--color-text-main)' }}>{prod.name}</div>
+                                <div style={{ fontWeight: 500, color: 'var(--color-text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span>{prod.name}</span>
+                                  {isArchived && (
+                                    <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#e2e8f0', color: '#475569', fontWeight: 600 }}>
+                                      {t('archivedBadge')}
+                                    </span>
+                                  )}
+                                </div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                                   {prod.unit} · {prod.is_organic ? 'Organic Certified' : 'Fresh Harvest'}
                                 </div>
@@ -625,13 +753,15 @@ export const FarmerDashboard = () => {
                               <span className={`badge ${isLow ? 'badge-warning' : 'badge-success'}`}>
                                 {isLow ? `${t('lowStock')} (${prod.stock_quantity} ${prod.unit})` : `${t('inStock')} (${prod.stock_quantity} ${prod.unit})`}
                               </span>
-                              <button
-                                onClick={() => setStockEditingProduct(prod)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
-                                title="Quick edit stock"
-                              >
-                                <Edit2 size={13} />
-                              </button>
+                              {!isArchived && (
+                                <button
+                                  onClick={() => setStockEditingProduct(prod)}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+                                  title="Quick edit stock"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                              )}
                             </div>
                           </td>
 
@@ -641,7 +771,7 @@ export const FarmerDashboard = () => {
                                 ₹{prod.price_per_unit} / {prod.unit}
                               </span>
 
-                              {showAi && (
+                              {!isArchived && showAi && (
                                 <span className="ai-hint-tag">
                                   <Sparkles size={12} />
                                   <span>{t('aiPriceHint', { price: prod.ai_suggested_price })}</span>
@@ -665,30 +795,65 @@ export const FarmerDashboard = () => {
                           </td>
 
                           <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
-                              <button
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => {
-                                  setImageEditingProduct(prod);
-                                  setSelectedFile(null);
-                                  setPreviewUrl('');
-                                  setFileError('');
-                                }}
-                                title="Edit product photo"
-                              >
-                                <Camera size={13} />
-                                <span>Photo</span>
-                              </button>
-                              <button
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => {
-                                  setEditingProduct(prod);
-                                  setNewPrice(prod.price_per_unit);
-                                }}
-                              >
-                                <Edit2 size={13} />
-                                <span>{t('editPrice')}</span>
-                              </button>
+                            <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                              {isArchived ? (
+                                <button
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => handleRestoreProduct(prod)}
+                                  disabled={restoringProductId === prod.id}
+                                  title={t('restoreProduct')}
+                                  style={{ color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <RotateCcw size={13} className={restoringProductId === prod.id ? 'animate-spin' : ''} />
+                                  <span>{t('restore')}</span>
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => {
+                                      setImageEditingProduct(prod);
+                                      setSelectedFile(null);
+                                      setPreviewUrl('');
+                                      setFileError('');
+                                    }}
+                                    title="Edit product photo"
+                                  >
+                                    <Camera size={13} />
+                                    <span>Photo</span>
+                                  </button>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => {
+                                      setEditingProduct(prod);
+                                      setNewPrice(prod.price_per_unit);
+                                    }}
+                                    title={t('editPrice')}
+                                  >
+                                    <Edit2 size={13} />
+                                    <span>{t('editPrice')}</span>
+                                  </button>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => setDeletingProduct(prod)}
+                                    title={t('deleteProduct')}
+                                    style={{
+                                      color: '#dc2626',
+                                      borderColor: '#fecaca',
+                                      padding: '6px 8px',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#fee2e2';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '';
+                                    }}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1363,6 +1528,118 @@ export const FarmerDashboard = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      {/* DELETE / ARCHIVE PRODUCT CONFIRMATION MODAL */}
+      {deletingProduct && (
+        <div className="modal-overlay" onClick={() => !isDeleting && setDeletingProduct(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
+                  <Trash2 size={18} />
+                </div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#111827', margin: 0 }}>
+                  {t('deleteProductTitle')}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isDeleting && setDeletingProduct(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Product Snapshot Card */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', backgroundColor: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', marginBottom: '16px' }}>
+              <img
+                src={getImageUrl(deletingProduct.image_url)}
+                alt={deletingProduct.name}
+                style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-sm)', objectFit: 'cover' }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, color: 'var(--color-text-main)', fontSize: '0.95rem' }}>
+                  {deletingProduct.name}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                  ₹{deletingProduct.price_per_unit} / {deletingProduct.unit} · Stock: {deletingProduct.stock_quantity} {deletingProduct.unit}
+                </div>
+              </div>
+            </div>
+
+            {/* Contextual Warning */}
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: '20px',
+                fontSize: '0.875rem',
+                lineHeight: '1.45',
+                backgroundColor: deletingProduct.has_orders ? '#eff6ff' : '#fef2f2',
+                border: `1px solid ${deletingProduct.has_orders ? '#bfdbfe' : '#fecaca'}`,
+                color: deletingProduct.has_orders ? '#1e40af' : '#991b1b'
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {deletingProduct.has_orders ? (
+                  <>
+                    <Archive size={15} />
+                    <span>Historical Order Protection</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={15} />
+                    <span>Permanent Removal</span>
+                  </>
+                )}
+              </div>
+              <p style={{ margin: 0 }}>
+                {deletingProduct.has_orders ? t('deleteConfirmArchive') : t('deleteConfirmHard')}
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setDeletingProduct(null)}
+                disabled={isDeleting}
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteProduct}
+                disabled={isDeleting}
+                style={{
+                  backgroundColor: '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '8px 16px',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  opacity: isDeleting ? 0.7 : 1,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                <Trash2 size={14} />
+                <span>
+                  {isDeleting
+                    ? 'Processing...'
+                    : deletingProduct.has_orders
+                    ? t('confirmArchiveAction')
+                    : t('confirmDeleteAction')}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}
