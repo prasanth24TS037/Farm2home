@@ -97,6 +97,7 @@ export const FarmerDashboard = () => {
   // Product Delete & Archive State
   const [deletingProduct, setDeletingProduct] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteModalError, setDeleteModalError] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [restoringProductId, setRestoringProductId] = useState(null);
   const [deleteNotice, setDeleteNotice] = useState({ type: '', text: '' });
@@ -150,11 +151,13 @@ export const FarmerDashboard = () => {
 
   const handleDeleteProduct = async () => {
     if (!deletingProduct) return;
+    setDeleteModalError('');
     try {
       setIsDeleting(true);
       const res = await productService.deleteProduct(deletingProduct.id);
       
-      if (res.action === 'archived') {
+      const isArchived = res && res.action === 'archived';
+      if (isArchived) {
         if (showArchived) {
           setProducts(prev => prev.map(p => p.id === deletingProduct.id ? { ...p, is_active: false } : p));
         } else {
@@ -168,7 +171,19 @@ export const FarmerDashboard = () => {
       setDeletingProduct(null);
     } catch (err) {
       console.error("Error deleting product:", err);
-      const errMsg = err.response?.data?.detail || "Failed to remove product. Please try again.";
+      let errMsg = err.response?.data?.detail;
+      if (!errMsg) {
+        if (err.response?.status === 404) {
+          errMsg = "Delete endpoint was not found on the connected backend server (HTTP 404). If using a remote deployment (Render), please deploy your latest backend code or run the local backend server.";
+        } else if (err.response?.status === 403) {
+          errMsg = "Not authorized to delete this product.";
+        } else if (err.message) {
+          errMsg = err.message;
+        } else {
+          errMsg = "Failed to remove product. Please try again.";
+        }
+      }
+      setDeleteModalError(errMsg);
       setDeleteNotice({ type: 'error', text: errMsg });
     } finally {
       setIsDeleting(false);
@@ -835,7 +850,10 @@ export const FarmerDashboard = () => {
                                   </button>
                                   <button
                                     className="btn btn-secondary btn-sm"
-                                    onClick={() => setDeletingProduct(prod)}
+                                    onClick={() => {
+                                      setDeletingProduct(prod);
+                                      setDeleteModalError('');
+                                    }}
                                     title={t('deleteProduct')}
                                     style={{
                                       color: '#dc2626',
@@ -1601,6 +1619,28 @@ export const FarmerDashboard = () => {
                 {deletingProduct.has_orders ? t('deleteConfirmArchive') : t('deleteConfirmHard')}
               </p>
             </div>
+
+            {/* Error message inside modal */}
+            {deleteModalError && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  marginBottom: '16px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b',
+                  fontSize: '0.85rem',
+                  lineHeight: '1.4'
+                }}
+              >
+                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                  <AlertTriangle size={14} />
+                  <span>Deletion Failed</span>
+                </div>
+                <div>{deleteModalError}</div>
+              </div>
+            )}
 
             {/* Modal Actions */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
