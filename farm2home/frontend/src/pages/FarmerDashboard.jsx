@@ -1530,6 +1530,8 @@ export const FarmerDashboard = () => {
             </form>
           </div>
         </div>
+      )}
+
       {/* DELETE / ARCHIVE PRODUCT CONFIRMATION MODAL */}
       {deletingProduct && (
         <div className="modal-overlay" onClick={() => !isDeleting && setDeletingProduct(null)}>
