@@ -73,15 +73,8 @@ def assign_delivery_leg(delivery: Delivery, db: Session, exclude_agent_id: Optio
     delivery.status = "assigned"
     delivery.assigned_at = datetime.utcnow()
 
-    if chosen.user_id:
-        ord_num = delivery.order.order_number if delivery.order else f"ORD-{delivery.order_id}"
-        notif = Notification(
-            user_id=chosen.user_id,
-            title=f"New Delivery Assignment #{ord_num}",
-            message=f"Pickup assigned from {delivery.farmer.farm_name if delivery.farmer else 'Farm'} for order #{ord_num}.",
-            type="delivery"
-        )
-        db.add(notif)
+    from app.services.notification_service import NotificationService
+    NotificationService.create_delivery_assignment_notification(delivery, db)
 
     db.commit()
     return True
@@ -147,13 +140,8 @@ def create_order_delivery_legs(order: Order, db: Session) -> List[Delivery]:
         legs.append(leg)
 
         if assigned_agent and assigned_agent.user_id:
-            notif = Notification(
-                user_id=assigned_agent.user_id,
-                title=f"New Delivery Assignment #{order.order_number}",
-                message=f"New pickup assigned from {fname} for order #{order.order_number}.",
-                type="delivery"
-            )
-            db.add(notif)
+            from app.services.notification_service import NotificationService
+            NotificationService.create_delivery_assignment_notification(leg, db)
 
     if legs and legs[0].delivery_agent_id:
         order.delivery_agent_id = legs[0].delivery_agent_id
@@ -323,24 +311,9 @@ def update_delivery_status(
         driver.total_deliveries += 1
         driver.total_earnings += leg.payout_amount
 
-        # Send notification to driver
-        notif = Notification(
-            user_id=user_id,
-            title="Delivery Completed! 🎉",
-            message=f"Order #{leg.order.order_number if leg.order else leg.order_id} delivered successfully. +₹{leg.payout_amount:.0f} added to earnings.",
-            type="delivery"
-        )
-        db.add(notif)
-
-        # Notify customer
-        if leg.order and leg.order.customer and leg.order.customer.user_id:
-            cust_notif = Notification(
-                user_id=leg.order.customer.user_id,
-                title=f"Order #{leg.order.order_number} Delivered",
-                message="Your farm-fresh harvest has arrived at your doorstep. Enjoy the freshness!",
-                type="order"
-            )
-            db.add(cust_notif)
+    # Multi-party status notification (Customer, Farmer, Agent)
+    from app.services.notification_service import NotificationService
+    NotificationService.create_delivery_status_notifications(leg, req.status, db)
 
     # Update overall order status if all legs are complete
     order = leg.order
@@ -670,13 +643,8 @@ def request_delivery_payout(
     db.add(new_payout)
 
     # Add confirmation notification
-    notif = Notification(
-        user_id=driver.user_id,
-        title="Payout Request Submitted",
-        message=f"Your delivery earnings payout for ₹{req.amount:,.2f} ({new_payout.payout_reference}) is pending bank settlement.",
-        type="payout"
-    )
-    db.add(notif)
+    from app.services.notification_service import NotificationService
+    NotificationService.create_payout_notification(new_payout, db)
 
     db.commit()
     db.refresh(new_payout)

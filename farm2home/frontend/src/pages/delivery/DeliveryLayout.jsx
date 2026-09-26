@@ -3,8 +3,9 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { deliveryService } from '../../services/deliveryService';
+import { notificationService } from '../../services/notificationService';
 import { LanguageToggle } from '../../components/common/LanguageToggle';
-import { Bell, LogOut, Power, Home, Map, RotateCcw, User, Wallet, X, Check, CheckCheck, Truck, ChevronRight } from 'lucide-react';
+import { Bell, LogOut, Power, Home, Map, RotateCcw, User, Wallet, X, Check, CheckCheck, Truck, ChevronRight, ShoppingBag, PackageCheck } from 'lucide-react';
 
 export const DeliveryLayout = () => {
   const { user, logout } = useAuth();
@@ -18,6 +19,18 @@ export const DeliveryLayout = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [agentProfile, setAgentProfile] = useState(null);
 
+  const fetchNotifications = async () => {
+    try {
+      const data = await notificationService.getNotifications(1, 20);
+      if (data && Array.isArray(data.notifications)) {
+        setNotifications(data.notifications);
+        setUnreadCount(data.unread_count || 0);
+      }
+    } catch (err) {
+      console.warn("Failed to load notifications:", err);
+    }
+  };
+
   const fetchLayoutData = async () => {
     try {
       const data = await deliveryService.getDashboard();
@@ -27,17 +40,13 @@ export const DeliveryLayout = () => {
       console.error("Failed to load delivery profile data:", err);
     }
 
-    try {
-      const notifs = await deliveryService.getNotifications();
-      setNotifications(notifs || []);
-      setUnreadCount((notifs || []).filter(n => !n.is_read).length);
-    } catch (err) {
-      console.error("Failed to load notifications:", err);
-    }
+    await fetchNotifications();
   };
 
   useEffect(() => {
     fetchLayoutData();
+    const interval = setInterval(fetchNotifications, 20000); // Live background poll
+    return () => clearInterval(interval);
   }, [location.pathname]);
 
   const handleToggleDuty = async () => {
@@ -51,9 +60,30 @@ export const DeliveryLayout = () => {
     }
   };
 
+  const handleNotificationClick = async (notif) => {
+    try {
+      if (!notif.is_read) {
+        await notificationService.markAsRead(notif.id);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+      setShowNotifications(false);
+
+      if (notif.type === 'new_assignment' || notif.type === 'delivery') {
+        navigate('/dashboard/delivery/home');
+      } else if (notif.type === 'order_delivered') {
+        navigate('/dashboard/delivery/history');
+      } else if (notif.type === 'payout_processed' || notif.type === 'payout') {
+        navigate('/dashboard/delivery/earnings');
+      }
+    } catch (err) {
+      console.error("Failed to mark notification read:", err);
+    }
+  };
+
   const handleMarkAllRead = async () => {
     try {
-      await deliveryService.markNotificationsRead();
+      await notificationService.markAllRead();
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (err) {
@@ -258,29 +288,67 @@ export const DeliveryLayout = () => {
                   <div style={{ fontSize: '0.85rem' }}>{t('noNotifications', 'No new notifications')}</div>
                 </div>
               ) : (
-                notifications.map((n) => (
-                  <div 
-                    key={n.id}
-                    style={{
-                      padding: '10px 12px',
-                      backgroundColor: n.is_read ? 'var(--color-bg-app)' : 'var(--color-accent-delivery-bg)',
-                      border: n.is_read ? 'var(--border-hairline)' : '1px solid #fde68a',
-                      borderRadius: 'var(--radius-sm)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2px' }}>
-                      <div style={{ fontWeight: 600, fontSize: '0.8125rem', color: n.is_read ? 'var(--color-text-main)' : '#92400e' }}>
-                        {n.title}
+                notifications.map((n) => {
+                  const isUnread = !n.is_read;
+                  const IconComp = (n.type === 'new_assignment' || n.type === 'delivery')
+                    ? Truck
+                    : (n.type === 'order_delivered')
+                      ? CheckCheck
+                      : (n.type === 'order_picked_up')
+                        ? PackageCheck
+                        : (n.type === 'payout_processed' || n.type === 'payout')
+                          ? Wallet
+                          : (n.type === 'new_order' || n.type === 'order')
+                            ? ShoppingBag
+                            : Bell;
+
+                  return (
+                    <div 
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      style={{
+                        padding: '10px 12px',
+                        backgroundColor: isUnread ? 'var(--color-accent-delivery-bg)' : 'var(--color-bg-subtle)',
+                        border: isUnread ? '1px solid #fde68a' : 'var(--border-hairline)',
+                        borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        gap: '10px',
+                        transition: 'all var(--transition-fast)'
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          backgroundColor: isUnread ? 'rgba(217, 119, 6, 0.15)' : 'var(--color-bg-surface)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          color: isUnread ? 'var(--color-accent-delivery)' : 'var(--color-text-muted)'
+                        }}
+                      >
+                        <IconComp size={15} />
                       </div>
-                      <span style={{ fontSize: '0.675rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', marginLeft: '6px' }}>
-                        {n.created_at}
-                      </span>
+
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2px' }}>
+                          <div style={{ fontWeight: isUnread ? 700 : 500, fontSize: '0.8125rem', color: isUnread ? '#92400e' : 'var(--color-text-main)' }}>
+                            {n.title}
+                          </div>
+                          <span style={{ fontSize: '0.675rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', marginLeft: '6px' }}>
+                            {n.formatted_time || n.date_label || 'Recently'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', lineHeight: 1.35 }}>
+                          {n.message}
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', lineHeight: 1.35 }}>
-                      {n.message}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

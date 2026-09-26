@@ -24,6 +24,7 @@ class User(Base):
     customer_profile = relationship("CustomerProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     delivery_profile = relationship("DeliveryProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
 
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"

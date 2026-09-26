@@ -111,6 +111,14 @@ def ensure_schema_columns():
             elif po_cols and "delivery_agent_id" not in po_cols:
                 conn.execute(text("ALTER TABLE payouts ADD COLUMN delivery_agent_id INTEGER REFERENCES delivery_agents(id)"))
 
+            # Notifications table schema updates
+            res_notif = conn.execute(text("PRAGMA table_info(notifications)"))
+            notif_cols = [row[1] for row in res_notif.fetchall()]
+            if notif_cols and "related_order_id" not in notif_cols:
+                conn.execute(text("ALTER TABLE notifications ADD COLUMN related_order_id INTEGER REFERENCES orders(id)"))
+            if notif_cols and "related_delivery_id" not in notif_cols:
+                conn.execute(text("ALTER TABLE notifications ADD COLUMN related_delivery_id INTEGER REFERENCES deliveries(id)"))
+
             conn.commit()
     except Exception as e:
         print(f"Schema check notice: {e}")

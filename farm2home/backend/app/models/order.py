@@ -32,8 +32,15 @@ class Order(Base):
     customer = relationship("CustomerProfile", back_populates="orders")
     delivery_agent = relationship("DeliveryProfile", back_populates="assigned_orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
-    payment = relationship("Payment", back_populates="order", uselist=False, cascade="all, delete-orphan")
+    payments = relationship("Payment", back_populates="order", cascade="all, delete-orphan", order_by="desc(Payment.id)")
     deliveries = relationship("Delivery", back_populates="order", cascade="all, delete-orphan")
+
+    @property
+    def payment(self):
+        if not self.payments:
+            return None
+        # Prefer completed payment, else latest
+        return next((p for p in self.payments if p.payment_status == "completed"), self.payments[0])
 
 class OrderItem(Base):
     __tablename__ = "order_items"

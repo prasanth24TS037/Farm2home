@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { productService } from '../services/productService';
 import { orderService } from '../services/orderService';
+import { notificationService } from '../services/notificationService';
 import { LanguageToggle } from '../components/common/LanguageToggle';
 import { getImageUrl } from '../utils/imageUtils';
 import {
@@ -28,7 +29,11 @@ import {
   Sparkles,
   Settings,
   ShoppingBag,
-  User
+  User,
+  Bell,
+  CheckCheck,
+  Truck,
+  PackageCheck
 } from 'lucide-react';
 
 export const CustomerDashboard = () => {
@@ -56,10 +61,51 @@ export const CustomerDashboard = () => {
   const [myOrders, setMyOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
+  // Notification Bell State
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
+
   // Wishlist State
   const [wishlistIds, setWishlistIds] = useState([]);
   const [wishlistProducts, setWishlistProducts] = useState([]);
   const [showWishlistDrawer, setShowWishlistDrawer] = useState(false);
+
+  const fetchCustomerNotifications = async () => {
+    try {
+      const data = await notificationService.getNotifications(1, 20);
+      if (data && Array.isArray(data.notifications)) {
+        setNotifications(data.notifications);
+        setUnreadNotifsCount(data.unread_count || 0);
+      }
+    } catch (err) {
+      console.warn('Failed to load customer notifications:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notif) => {
+    try {
+      if (!notif.is_read) {
+        await notificationService.markAsRead(notif.id);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+        setUnreadNotifsCount(prev => Math.max(0, prev - 1));
+      }
+      setShowNotificationsDropdown(false);
+      openOrdersModal();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await notificationService.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadNotifsCount(0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const loadWishlist = async () => {
     try {
@@ -134,6 +180,9 @@ export const CustomerDashboard = () => {
       }
     };
     fetchData();
+    fetchCustomerNotifications();
+    const notifInterval = setInterval(fetchCustomerNotifications, 20000);
+    return () => clearInterval(notifInterval);
   }, []);
 
   const filteredProducts = products.filter((p) => {
@@ -276,6 +325,161 @@ export const CustomerDashboard = () => {
               </span>
             )}
           </button>
+
+          {/* Notifications Bell */}
+          <div style={{ position: 'relative' }}>
+            <button
+              className="icon-btn"
+              onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
+              title="Notifications"
+              style={{ position: 'relative', backgroundColor: unreadNotifsCount > 0 ? '#f0fdf4' : 'var(--color-bg-surface)' }}
+            >
+              <Bell size={18} color={unreadNotifsCount > 0 ? 'var(--color-primary)' : 'inherit'} />
+              {unreadNotifsCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    backgroundColor: 'var(--color-primary)',
+                    color: '#ffffff',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    minWidth: '18px',
+                    height: '18px',
+                    borderRadius: 'var(--radius-full)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 3px',
+                    border: '2px solid var(--color-bg-surface)'
+                  }}
+                >
+                  {unreadNotifsCount > 9 ? '9+' : unreadNotifsCount}
+                </span>
+              )}
+            </button>
+
+            {showNotificationsDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '46px',
+                  right: 0,
+                  width: '340px',
+                  maxHeight: '420px',
+                  backgroundColor: 'var(--color-bg-surface)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  border: 'var(--border-hairline)',
+                  zIndex: 1000,
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: 'var(--border-hairline)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Bell size={16} color="var(--color-primary)" />
+                    <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{t('notifications', 'Notifications')}</span>
+                    {unreadNotifsCount > 0 && (
+                      <span className="badge badge-success" style={{ fontSize: '0.65rem', padding: '1px 5px' }}>
+                        {unreadNotifsCount} new
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {unreadNotifsCount > 0 && (
+                      <button
+                        onClick={handleMarkAllNotificationsRead}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--color-primary)',
+                          fontSize: '0.725rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      >
+                        {t('markAllRead', 'Mark all read')}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowNotificationsDropdown(false)}
+                      style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0 }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {notifications.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px 10px', color: 'var(--color-text-muted)' }}>
+                      <Bell size={24} style={{ margin: '0 auto 6px', opacity: 0.3 }} />
+                      <div style={{ fontSize: '0.8125rem' }}>{t('noNotifications', 'No new notifications')}</div>
+                    </div>
+                  ) : (
+                    notifications.map(n => {
+                      const isUnread = !n.is_read;
+                      const IconComp = (n.type === 'order_delivered')
+                        ? CheckCheck
+                        : (n.type === 'order_picked_up')
+                          ? Truck
+                          : ShoppingBag;
+
+                      return (
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          style={{
+                            padding: '10px',
+                            borderRadius: 'var(--radius-sm)',
+                            backgroundColor: isUnread ? '#f0fdf4' : 'var(--color-bg-subtle)',
+                            border: isUnread ? '1px solid #bbf7d0' : 'var(--border-hairline)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            gap: '10px',
+                            transition: 'all var(--transition-fast)'
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '30px',
+                              height: '30px',
+                              borderRadius: '50%',
+                              backgroundColor: isUnread ? 'var(--color-primary-light)' : 'var(--color-bg-surface)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              color: isUnread ? 'var(--color-primary)' : 'var(--color-text-muted)'
+                            }}
+                          >
+                            <IconComp size={14} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <span style={{ fontWeight: isUnread ? 700 : 500, fontSize: '0.8125rem', color: isUnread ? 'var(--color-primary-dark)' : 'var(--color-text-main)' }}>
+                                {n.title}
+                              </span>
+                              <span style={{ fontSize: '0.675rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', marginLeft: '6px' }}>
+                                {n.formatted_time || n.date_label || 'Recently'}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px', lineHeight: 1.35 }}>
+                              {n.message}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* My Orders Button */}
           <button

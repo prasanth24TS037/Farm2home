@@ -17,4 +17,4 @@ class Payment(Base):
     # STRICT SECURITY REQUIREMENT: No raw card numbers, CVVs, or expiry dates are stored.
 
     # Relationships
-    order = relationship("Order", back_populates="payment")
+    order = relationship("Order", back_populates="payments")

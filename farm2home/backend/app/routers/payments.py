@@ -109,21 +109,9 @@ def process_payment(
     from app.routers.delivery import create_order_delivery_legs
     create_order_delivery_legs(order, db)
 
-    # Notify relevant farmer(s)
-    notified_farmers = set()
-    customer_name = order.customer.user.full_name if order.customer and order.customer.user else "A customer"
-
-    for item in order.items:
-        farmer = item.farmer or (item.product.farmer if item.product else None)
-        if farmer and farmer.user_id and farmer.user_id not in notified_farmers:
-            notified_farmers.add(farmer.user_id)
-            notif = Notification(
-                user_id=farmer.user_id,
-                title=f"New Harvest Order #{order.order_number}",
-                message=f"{customer_name} placed an order including your fresh harvest produce. Check your orders tab to prepare packaging.",
-                type="order"
-            )
-            db.add(notif)
+    # Notify relevant farmer(s) strictly for their own items and subtotal
+    from app.services.notification_service import NotificationService
+    NotificationService.create_order_farmer_notifications(order, db)
 
     db.commit()
     db.refresh(order)
@@ -371,13 +359,8 @@ def request_payout(
     db.add(new_payout)
 
     # Add confirmation notification
-    notif = Notification(
-        user_id=farmer.user_id,
-        title="Payout Request Submitted",
-        message=f"Your settlement request for ₹{req.amount:,.2f} ({new_payout.payout_reference}) is pending processing.",
-        type="payout"
-    )
-    db.add(notif)
+    from app.services.notification_service import NotificationService
+    NotificationService.create_payout_notification(new_payout, db)
 
     db.commit()
     db.refresh(new_payout)
