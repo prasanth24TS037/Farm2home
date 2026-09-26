@@ -66,6 +66,7 @@ class UpdateProfileRequest(BaseModel):
     vehicle_type: Optional[str] = None
     vehicle_number: Optional[str] = None
     license_number: Optional[str] = None
+    is_on_duty: Optional[bool] = None
 
 class ForgotPasswordRequest(BaseModel):
     email: str

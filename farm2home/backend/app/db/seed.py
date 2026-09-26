@@ -58,6 +58,59 @@ def ensure_schema_columns():
             if prod_cols and "deleted_at" not in prod_cols:
                 conn.execute(text("ALTER TABLE products ADD COLUMN deleted_at DATETIME"))
 
+            # Delivery Agents table schema updates
+            res_del = conn.execute(text("PRAGMA table_info(delivery_agents)"))
+            del_cols = [row[1] for row in res_del.fetchall()]
+            if del_cols and "payout_method" not in del_cols:
+                conn.execute(text("ALTER TABLE delivery_agents ADD COLUMN payout_method VARCHAR(50) DEFAULT 'UPI'"))
+            if del_cols and "payout_upi_id" not in del_cols:
+                conn.execute(text("ALTER TABLE delivery_agents ADD COLUMN payout_upi_id VARCHAR(100)"))
+            if del_cols and "payout_account_holder" not in del_cols:
+                conn.execute(text("ALTER TABLE delivery_agents ADD COLUMN payout_account_holder VARCHAR(100)"))
+            if del_cols and "payout_account_last_four" not in del_cols:
+                conn.execute(text("ALTER TABLE delivery_agents ADD COLUMN payout_account_last_four VARCHAR(10)"))
+            if del_cols and "payout_bank_name" not in del_cols:
+                conn.execute(text("ALTER TABLE delivery_agents ADD COLUMN payout_bank_name VARCHAR(100)"))
+            if del_cols and "payout_bank_ifsc" not in del_cols:
+                conn.execute(text("ALTER TABLE delivery_agents ADD COLUMN payout_bank_ifsc VARCHAR(20)"))
+            if del_cols and "kyc_status" not in del_cols:
+                conn.execute(text("ALTER TABLE delivery_agents ADD COLUMN kyc_status VARCHAR(50) DEFAULT 'verified'"))
+            if del_cols and "license_status" not in del_cols:
+                conn.execute(text("ALTER TABLE delivery_agents ADD COLUMN license_status VARCHAR(50) DEFAULT 'verified'"))
+            if del_cols and "rc_status" not in del_cols:
+                conn.execute(text("ALTER TABLE delivery_agents ADD COLUMN rc_status VARCHAR(50) DEFAULT 'verified'"))
+
+            # Payouts table schema updates (ensure farmer_id is nullable and delivery_agent_id exists)
+            res_po = conn.execute(text("PRAGMA table_info(payouts)"))
+            po_rows = res_po.fetchall()
+            po_cols = [row[1] for row in po_rows]
+            farmer_id_not_null = any(row[1] == "farmer_id" and row[3] == 1 for row in po_rows)
+
+            if farmer_id_not_null:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS payouts_migrated (
+                        id INTEGER PRIMARY KEY,
+                        payout_reference VARCHAR(50) UNIQUE NOT NULL,
+                        farmer_id INTEGER REFERENCES farmers(id),
+                        delivery_agent_id INTEGER REFERENCES delivery_agents(id),
+                        amount FLOAT NOT NULL,
+                        status VARCHAR(50) DEFAULT 'pending',
+                        payout_method VARCHAR(50) DEFAULT 'UPI',
+                        account_reference_masked VARCHAR(100),
+                        requested_at DATETIME,
+                        settled_at DATETIME,
+                        notes TEXT
+                    );
+                """))
+                conn.execute(text("""
+                    INSERT OR IGNORE INTO payouts_migrated (id, payout_reference, farmer_id, amount, status, payout_method, account_reference_masked, requested_at, settled_at, notes)
+                    SELECT id, payout_reference, farmer_id, amount, status, payout_method, account_reference_masked, requested_at, settled_at, notes FROM payouts;
+                """))
+                conn.execute(text("DROP TABLE payouts;"))
+                conn.execute(text("ALTER TABLE payouts_migrated RENAME TO payouts;"))
+            elif po_cols and "delivery_agent_id" not in po_cols:
+                conn.execute(text("ALTER TABLE payouts ADD COLUMN delivery_agent_id INTEGER REFERENCES delivery_agents(id)"))
+
             conn.commit()
     except Exception as e:
         print(f"Schema check notice: {e}")
@@ -258,7 +311,17 @@ def seed_database(force: bool = False):
             license_number="DL-TN-2023-88273",
             is_on_duty=True,
             total_deliveries=18,
-            completed_today=9
+            completed_today=9,
+            total_earnings=1170.0,
+            payout_method="UPI",
+            payout_upi_id="murugan.delivery@okaxis",
+            payout_account_holder="Murugan Vel",
+            payout_account_last_four="4421",
+            payout_bank_name="HDFC Bank",
+            payout_bank_ifsc="HDFC0001890",
+            kyc_status="verified",
+            license_status="verified",
+            rc_status="verified"
         )
         db.add(delivery_profile)
         db.flush()
@@ -282,7 +345,17 @@ def seed_database(force: bool = False):
             license_number="DL-TN-2023-99104",
             is_on_duty=True,
             total_deliveries=12,
-            completed_today=6
+            completed_today=6,
+            total_earnings=780.0,
+            payout_method="UPI",
+            payout_upi_id="karthik.raja@okhdfcbank",
+            payout_account_holder="Karthik Raja",
+            payout_account_last_four="8842",
+            payout_bank_name="SBI",
+            payout_bank_ifsc="SBIN0004521",
+            kyc_status="verified",
+            license_status="verified",
+            rc_status="verified"
         )
         db.add(delivery_profile2)
         db.flush()

@@ -17,12 +17,22 @@ class DeliveryProfile(Base):
     total_deliveries = Column(Integer, default=0)
     completed_today = Column(Integer, default=0)
     total_earnings = Column(Float, default=0.0)
+    payout_method = Column(String(50), default="UPI")
+    payout_upi_id = Column(String(100), nullable=True)
+    payout_account_holder = Column(String(100), nullable=True)
+    payout_account_last_four = Column(String(10), nullable=True)
+    payout_bank_name = Column(String(100), nullable=True)
+    payout_bank_ifsc = Column(String(20), nullable=True)
+    kyc_status = Column(String(50), default="verified")
+    license_status = Column(String(50), default="verified")
+    rc_status = Column(String(50), default="verified")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     user = relationship("User", back_populates="delivery_profile")
     assigned_orders = relationship("Order", back_populates="delivery_agent")
     deliveries = relationship("Delivery", back_populates="delivery_agent")
+    payouts = relationship("Payout", back_populates="delivery_agent", cascade="all, delete-orphan")
 
 class Delivery(Base):
     __tablename__ = "deliveries"

@@ -297,15 +297,28 @@ def get_farmer_earnings(
         }
     }
 
+@router.get("/delivery-earnings")
+def get_delivery_earnings_payment(
+    token_payload: dict = Depends(require_role(["delivery", "admin"])),
+    db: Session = Depends(get_db)
+):
+    from app.routers.delivery import get_delivery_earnings
+    return get_delivery_earnings(token_payload=token_payload, db=db)
+
 @router.post("/payout-request")
 def request_payout(
     req: PayoutRequestPayload,
-    token_payload: dict = Depends(require_role(["farmer", "admin"])),
+    token_payload: dict = Depends(require_role(["farmer", "delivery", "admin"])),
     db: Session = Depends(get_db)
 ):
     user_id = int(token_payload.get("sub"))
-    farmer = db.query(FarmerProfile).filter(FarmerProfile.user_id == user_id).first()
+    user_role = token_payload.get("role", "")
 
+    if user_role == "delivery":
+        from app.routers.delivery import request_delivery_payout
+        return request_delivery_payout(req=req, token_payload=token_payload, db=db)
+
+    farmer = db.query(FarmerProfile).filter(FarmerProfile.user_id == user_id).first()
     if not farmer:
         raise HTTPException(status_code=404, detail="Farmer profile not found")
 
@@ -386,12 +399,17 @@ def request_payout(
 @router.patch("/payout-account")
 def update_payout_account(
     req: PayoutAccountPayload,
-    token_payload: dict = Depends(require_role(["farmer", "admin"])),
+    token_payload: dict = Depends(require_role(["farmer", "delivery", "admin"])),
     db: Session = Depends(get_db)
 ):
     user_id = int(token_payload.get("sub"))
-    farmer = db.query(FarmerProfile).filter(FarmerProfile.user_id == user_id).first()
+    user_role = token_payload.get("role", "")
 
+    if user_role == "delivery":
+        from app.routers.delivery import update_delivery_payout_account
+        return update_delivery_payout_account(req=req, token_payload=token_payload, db=db)
+
+    farmer = db.query(FarmerProfile).filter(FarmerProfile.user_id == user_id).first()
     if not farmer:
         raise HTTPException(status_code=404, detail="Farmer profile not found")
 

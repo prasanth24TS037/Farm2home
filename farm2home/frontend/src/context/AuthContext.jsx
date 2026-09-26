@@ -115,6 +115,14 @@ export const AuthProvider = ({ children }) => {
           ...(updatedUser?.customer || {}),
           delivery_address: profileData.delivery_address !== undefined ? profileData.delivery_address : currentUser.customer?.delivery_address,
           city: profileData.city !== undefined ? profileData.city : currentUser.customer?.city
+        },
+        delivery: {
+          ...(currentUser.delivery || {}),
+          ...(updatedUser?.delivery || {}),
+          vehicle_type: profileData.vehicle_type !== undefined ? profileData.vehicle_type : (currentUser.delivery?.vehicle_type || 'Motorcycle'),
+          vehicle_number: profileData.vehicle_number !== undefined ? profileData.vehicle_number : (currentUser.delivery?.vehicle_number || ''),
+          license_number: profileData.license_number !== undefined ? profileData.license_number : (currentUser.delivery?.license_number || ''),
+          is_on_duty: profileData.is_on_duty !== undefined ? profileData.is_on_duty : (currentUser.delivery?.is_on_duty ?? true)
         }
       };
 

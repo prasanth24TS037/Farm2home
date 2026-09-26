@@ -41,8 +41,33 @@ export const deliveryService = {
     return response.data;
   },
   
+  getHistoryDetail: async (deliveryId) => {
+    const response = await api.get(`/delivery/history/${deliveryId}`);
+    return response.data;
+  },
+  
   getEarnings: async () => {
     const response = await api.get('/delivery/earnings');
+    return response.data;
+  },
+
+  requestPayout: async (amount, notes = '') => {
+    const response = await api.post('/delivery/payout-request', { amount, notes });
+    return response.data;
+  },
+
+  updatePayoutAccount: async (payoutData) => {
+    const response = await api.patch('/delivery/payout-account', payoutData);
+    return response.data;
+  },
+
+  getNotifications: async () => {
+    const response = await api.get('/delivery/notifications');
+    return response.data;
+  },
+
+  markNotificationsRead: async () => {
+    const response = await api.post('/delivery/notifications/mark-read');
     return response.data;
   }
 };

@@ -68,9 +68,20 @@ def get_user_profile_data(user: User) -> dict:
                 "id": user.delivery_profile.id,
                 "vehicle_type": user.delivery_profile.vehicle_type,
                 "vehicle_number": user.delivery_profile.vehicle_number,
+                "license_number": user.delivery_profile.license_number,
                 "is_on_duty": user.delivery_profile.is_on_duty,
                 "total_deliveries": user.delivery_profile.total_deliveries,
                 "completed_today": user.delivery_profile.completed_today,
+                "total_earnings": user.delivery_profile.total_earnings,
+                "kyc_status": user.delivery_profile.kyc_status or "verified",
+                "license_status": user.delivery_profile.license_status or "verified",
+                "rc_status": user.delivery_profile.rc_status or "verified",
+                "payout_method": user.delivery_profile.payout_method or "UPI",
+                "payout_upi_id": user.delivery_profile.payout_upi_id or "",
+                "payout_account_holder": user.delivery_profile.payout_account_holder or user.full_name,
+                "payout_account_last_four": user.delivery_profile.payout_account_last_four or "",
+                "payout_bank_name": user.delivery_profile.payout_bank_name or "",
+                "payout_bank_ifsc": user.delivery_profile.payout_bank_ifsc or ""
             }
             if not user.delivery_profile.vehicle_number:
                 profile_data["needs_profile_completion"] = True
@@ -520,6 +531,8 @@ def update_user_profile(db: Session, user: User, req: UpdateProfileRequest) -> d
             user.delivery_profile.vehicle_number = req.vehicle_number
         if req.license_number is not None:
             user.delivery_profile.license_number = req.license_number
+        if req.is_on_duty is not None:
+            user.delivery_profile.is_on_duty = req.is_on_duty
 
     db.commit()
     db.refresh(user)

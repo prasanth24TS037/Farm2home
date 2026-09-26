@@ -8,7 +8,8 @@ class Payout(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     payout_reference = Column(String(50), unique=True, index=True, nullable=False)
-    farmer_id = Column(Integer, ForeignKey("farmers.id"), nullable=False, index=True)
+    farmer_id = Column(Integer, ForeignKey("farmers.id"), nullable=True, index=True)
+    delivery_agent_id = Column(Integer, ForeignKey("delivery_agents.id"), nullable=True, index=True)
     amount = Column(Float, nullable=False)
     status = Column(String(50), default="pending", index=True)  # pending, processing, paid, rejected
     payout_method = Column(String(50), default="UPI")  # UPI, Bank Transfer
@@ -20,4 +21,5 @@ class Payout(Base):
     # STRICT SECURITY: No plaintext full bank account numbers or card data stored.
 
     # Relationships
-    farmer = relationship("FarmerProfile")
+    farmer = relationship("FarmerProfile", back_populates="payouts")
+    delivery_agent = relationship("DeliveryProfile", back_populates="payouts")
